@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+order_system.db
+.env

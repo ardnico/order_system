@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Login</h1>
+<form method="post" class="card">
+    <label>
+        Email
+        <input type="email" name="email" required>
+    </label>
+    <label>
+        Password
+        <input type="password" name="password" required>
+    </label>
+    <label>
+        Household
+        <select name="household_id" required>
+            <option value="">-- choose --</option>
+            {% for h in households %}
+            <option value="{{ h.id }}">{{ h.name }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <button type="submit">Login</button>
+</form>
+<p>No account? <a href="/register">Register</a></p>
+{% endblock %}

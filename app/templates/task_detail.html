@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Task #{{ task.order_number }} - {{ task.title }}</h1>
+<div class="card">
+    <p>Status: {{ task.status }}</p>
+    <p>Category: {{ task.category }}</p>
+    <p>Due: {{ task.due_date }} {% if task.due_time %}{{ task.due_time }}{% endif %}</p>
+    <p>Proposed points: {{ task.proposed_points }}</p>
+    <p>Actual points: {{ task.actual_points or '-' }}</p>
+    <p>Priority: {{ task.priority }}</p>
+    <p>Assignee: {% if assignee %}{{ assignee.display_name }}{% else %}-{% endif %}</p>
+    <p>Creator: {{ creator.display_name }}</p>
+    <p>Description:</p>
+    <pre>{{ task.description or '-' }}</pre>
+    <p>Notes:</p>
+    <pre>{{ task.notes or '-' }}</pre>
+</div>
+<div class="actions">
+    {% if task.status == 'open' %}
+    <form method="post" action="/tasks/{{ task.id }}/action"><input type="hidden" name="action" value="claim"><button type="submit">Claim</button></form>
+    {% endif %}
+    {% if task.status in ['open','assigned'] %}
+    <form method="post" action="/tasks/{{ task.id }}/action"><input type="hidden" name="action" value="start"><button type="submit">Start</button></form>
+    {% endif %}
+    {% if task.status in ['assigned','in_progress'] %}
+    <form method="post" action="/tasks/{{ task.id }}/action">
+        <input type="hidden" name="action" value="complete">
+        <label>Actual points (optional)<input type="number" name="actual_points"></label>
+        <button type="submit">Submit completion</button>
+    </form>
+    {% endif %}
+    {% if task.status == 'completed' %}
+    <form method="post" action="/tasks/{{ task.id }}/action">
+        <input type="hidden" name="action" value="approve">
+        <label>Final points<input type="number" name="actual_points" value="{{ task.actual_points or task.proposed_points }}"></label>
+        <button type="submit">Approve</button>
+    </form>
+    {% endif %}
+    {% if task.status not in ['approved','cancelled'] %}
+    <form method="post" action="/tasks/{{ task.id }}/action">
+        <input type="hidden" name="action" value="cancel">
+        <button type="submit">Cancel</button>
+    </form>
+    {% endif %}
+</div>
+{% if related_tx %}
+<p>Points already awarded: {{ related_tx.amount }} ({{ related_tx.description }})</p>
+{% endif %}
+{% endblock %}

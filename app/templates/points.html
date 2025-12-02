@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Point History</h1>
+<div class="card">
+    <h3>Balances</h3>
+    <ul>
+        {% for uid, balance in balances.items() %}
+        <li>{{ users[uid].display_name if users.get(uid) else uid }}: {{ balance }} pts</li>
+        {% endfor %}
+    </ul>
+</div>
+<table>
+    <thead><tr><th>Date</th><th>User</th><th>Amount</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+        {% for tx in transactions %}
+        <tr>
+            <td>{{ tx.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{{ users[tx.user_id].display_name if users.get(tx.user_id) else tx.user_id }}</td>
+            <td>{{ tx.amount }}</td>
+            <td>{{ tx.transaction_type }}</td>
+            <td>{{ tx.description }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
