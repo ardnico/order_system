@@ -1,5 +1,5 @@
-from typing import Optional
 import secrets
+from typing import Optional
 
 from fastapi import Depends, HTTPException, Request
 from passlib.context import CryptContext

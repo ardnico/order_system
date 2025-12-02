@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import SQLModel, Session, create_engine
 
 from app import db
+from app import models  # ensure models are registered with metadata
 from app.main import app
 
 
