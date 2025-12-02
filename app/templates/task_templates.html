@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Task Templates</h1>
+<div class="grid">
+    <div class="card">
+        <h3>Create template</h3>
+        <form method="post">
+            <label>Title<input type="text" name="title" required></label>
+            <label>Default category<input type="text" name="default_category"></label>
+            <label>Default points<input type="number" name="default_points"></label>
+            <label>Relative due days<input type="number" name="relative_due_days" placeholder="e.g. 3"></label>
+            <label>Memo<textarea name="memo"></textarea></label>
+            <button type="submit">Save</button>
+        </form>
+    </div>
+    <div class="card">
+        <h3>Existing templates</h3>
+        {% if templates %}
+        <ul>
+            {% for t in templates %}
+            <li>
+                <strong>{{ t.title }}</strong> ({{ t.default_category or '-' }}, points {{ t.default_points or '-' }}, due +{{ t.relative_due_days if t.relative_due_days is not none else '-' }} days)
+                <form method="post" action="/templates/tasks/{{ t.id }}/delete" class="inline">
+                    <button type="submit">Delete</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No templates yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
