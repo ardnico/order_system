@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Create Task</h1>
+<form method="post" class="card">
+    <label>Title<input type="text" name="title" value="{{ template.title if template else '' }}" required></label>
+    <label>Description<textarea name="description">{{ template.memo if template else '' }}</textarea></label>
+    <label>Category
+        <select name="category">
+            {% set cat = template.default_category if template else '' %}
+            <option value="cleaning" {% if cat=='cleaning' %}selected{% endif %}>Cleaning</option>
+            <option value="cooking" {% if cat=='cooking' %}selected{% endif %}>Cooking</option>
+            <option value="laundry" {% if cat=='laundry' %}selected{% endif %}>Laundry</option>
+            <option value="shopping" {% if cat=='shopping' %}selected{% endif %}>Shopping</option>
+            <option value="other" {% if cat=='other' %}selected{% endif %}>Other</option>
+        </select>
+    </label>
+    <label>Due date<input type="date" name="due_date" value="{{ default_due_date }}" required></label>
+    <label>Due time<input type="time" name="due_time"></label>
+    <label>Proposed points<input type="number" name="proposed_points" value="{{ template.default_points if template and template.default_points is not none else '' }}" required></label>
+    <label>Priority
+        <select name="priority">
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+        </select>
+    </label>
+    <label>Notes<textarea name="notes"></textarea></label>
+    <button type="submit">Create</button>
+</form>
+{% endblock %}

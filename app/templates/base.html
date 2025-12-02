@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or "Chore Board" }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+    <div class="brand">Household Chore Board</div>
+    {% if user %}
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/tasks">Tasks</a>
+        <a href="/templates/tasks">Task Templates</a>
+        <a href="/rewards">Rewards</a>
+        <a href="/points">Point History</a>
+        <form action="/logout" method="post" class="logout-form">
+            <button type="submit">Logout ({{ user.display_name }})</button>
+        </form>
+    </nav>
+    {% endif %}
+</header>
+<main>
+    {% if flash_messages %}
+        <div class="flash-list">
+            {% for msg in flash_messages %}
+                <div class="flash {{ msg.category }}">{{ msg.message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+</main>
+</body>
+</html>
