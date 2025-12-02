@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Tasks</h1>
+<div class="actions">
+    <a class="button" href="/tasks/new">Create Task</a>
+</div>
+<table>
+    <thead>
+        <tr><th>#</th><th>Title</th><th>Category</th><th>Status</th><th>Due</th><th>Points</th><th>Assignee</th></tr>
+    </thead>
+    <tbody>
+        {% for task in tasks %}
+        <tr>
+            <td>{{ task.order_number }}</td>
+            <td><a href="/tasks/{{ task.id }}">{{ task.title }}</a></td>
+            <td>{{ task.category }}</td>
+            <td>{{ task.status }}</td>
+            <td>{{ task.due_date }}</td>
+            <td>{{ task.proposed_points }}</td>
+            <td>{% if task.assignee_user_id %}{{ user_map[task.assignee_user_id].display_name if user_map.get(task.assignee_user_id) else task.assignee_user_id }}{% else %}-{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<h2>Use template</h2>
+<div class="cards">
+    {% for t in templates %}
+    <div class="card">
+        <h4>{{ t.title }}</h4>
+        <p>Default category: {{ t.default_category or '-' }}</p>
+        <p>Points: {{ t.default_points or '-' }}</p>
+        <p>Relative due: {% if t.relative_due_days is not none %}+{{ t.relative_due_days }} days{% else %}-{% endif %}</p>
+        <a class="button" href="/tasks/new?template_id={{ t.id }}">Create from template</a>
+    </div>
+    {% else %}
+    <p>No templates yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+<section class="grid">
+    <div class="card">
+        <h2>Your balance</h2>
+        <p class="big-number">{{ user_balance }} pts</p>
+    </div>
+    <div class="card">
+        <h2>Household balances</h2>
+        <ul>
+            {% for uid, balance in household_balances.items() %}
+            <li>{{ household_users[uid].display_name if household_users.get(uid) else uid }}: {{ balance }} pts</li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+<section class="grid">
+    <div class="card">
+        <h3>Assigned to you</h3>
+        {% if assigned_tasks %}
+        <ul>
+            {% for task in assigned_tasks %}
+            <li><a href="/tasks/{{ task.id }}">#{{ task.order_number }} {{ task.title }}</a> - {{ task.status }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No assigned tasks</p>
+        {% endif %}
+    </div>
+    <div class="card">
+        <h3>Open tasks</h3>
+        {% if open_tasks %}
+        <ul>
+            {% for task in open_tasks %}
+            <li><a href="/tasks/{{ task.id }}">#{{ task.order_number }} {{ task.title }}</a> - due {{ task.due_date }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No open tasks</p>
+        {% endif %}
+    </div>
+    <div class="card">
+        <h3>Recent transactions</h3>
+        {% if transactions %}
+        <ul>
+            {% for tx in transactions %}
+            <li>{{ tx.created_at.strftime('%Y-%m-%d') }}: {{ tx.amount }} ({{ tx.description }})</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No history yet</p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
