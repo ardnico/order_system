@@ -1,5 +1,13 @@
+import os
+import sys
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 
 from app import db
@@ -7,7 +15,11 @@ from app import models  # ensure models are registered with metadata
 from app.main import app
 
 
-test_engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+test_engine = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 
 def override_get_session():
     with Session(test_engine) as session:
@@ -31,6 +43,7 @@ def setup_db():
 
 @pytest.fixture
 def client():
+    reset_database()
     return TestClient(app)
 
 

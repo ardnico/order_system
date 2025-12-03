@@ -42,3 +42,4 @@ pytest
 ## Notes
 - If the SQLite database becomes unusable during local development, stop the server, delete `order_system.db`, and restart the app to recreate tables.
 - The app is intended for small household use and does not include external integrations.
+- This repository vendors lightweight `httpx` and `itsdangerous` shims so tests can run without external downloads when network access is blocked. If you have internet access, installing the requirements will use the upstream packages instead.
