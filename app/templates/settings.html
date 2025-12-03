@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ strings['settings.heading'] }}</h1>
+<div class="grid">
+    <div class="card">
+        <h3>{{ strings['settings.language'] }}</h3>
+        <form method="post" action="/settings/language">
+            <label>
+                <span>UI Language / 言語</span>
+                <select name="language">
+                    <option value="en" {% if household and household.language=='en' %}selected{% endif %}>{{ strings['settings.language.en'] }}</option>
+                    <option value="ja" {% if household and household.language=='ja' %}selected{% endif %}>{{ strings['settings.language.ja'] }}</option>
+                </select>
+            </label>
+            <button type="submit">Update</button>
+        </form>
+    </div>
+    <div class="card">
+        <h3>{{ strings['settings.recurring'] }}</h3>
+        <form method="post" action="/settings/recurring" class="stack">
+            <label>Template
+                <select name="task_template_id" required>
+                    {% for t in templates %}
+                    <option value="{{ t.id }}">{{ t.title }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Frequency
+                <select name="frequency">
+                    <option value="daily">Daily</option>
+                    <option value="weekly" selected>Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+            </label>
+            <label>{{ strings['settings.recurring.next'] }}<input type="date" name="next_run_date" value="{{ (today or '').isoformat() if today else '' }}"></label>
+            <label>{{ strings['tasks.assignee'] }}
+                <select name="assignee_user_id">
+                    <option value="">-</option>
+                    {% for member in assignees %}
+                    <option value="{{ member.id }}">{{ member.display_name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit">{{ strings['settings.recurring.add'] }}</button>
+        </form>
+        <div class="rule-list">
+            {% for r in recurring_rules %}
+            <div class="rule">
+                <div>
+                    <strong>{{ r.frequency }} • {{ r.next_run_date }}</strong>
+                    <p class="muted">Template #{{ r.task_template_id }} → {% if r.assignee_user_id %}{{ assignee_map[r.assignee_user_id].display_name if assignee_map.get(r.assignee_user_id) else r.assignee_user_id }}{% else %}unassigned{% endif %}</p>
+                </div>
+                <form method="post" action="/settings/recurring/{{ r.id }}/toggle">
+                    <label class="switch">
+                        <input type="checkbox" name="active" value="on" {% if r.active %}checked{% endif %} onchange="this.form.submit()">
+                        <span>Active</span>
+                    </label>
+                </form>
+            </div>
+            {% else %}
+            <p class="muted">No recurring rules yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

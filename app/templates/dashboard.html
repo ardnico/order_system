@@ -1,9 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Dashboard</h1>
+<div class="page-header">
+    <div>
+        <p class="eyebrow">{{ strings['dashboard.title'] }}</p>
+        <h1>{{ user.display_name }}</h1>
+    </div>
+</div>
 <section class="grid">
     <div class="card">
-        <h2>Your balance</h2>
+        <h2>My balance / 残高</h2>
         <p class="big-number">{{ user_balance }} pts</p>
     </div>
     <div class="card">
@@ -17,15 +22,15 @@
 </section>
 <section class="grid">
     <div class="card">
-        <h3>Assigned to you</h3>
+        <h3>{{ strings['tasks.assigned'] }}</h3>
         {% if assigned_tasks %}
         <ul>
             {% for task in assigned_tasks %}
-            <li><a href="/tasks/{{ task.id }}">#{{ task.order_number }} {{ task.title }}</a> - {{ task.status }}</li>
+            <li><a href="/tasks/{{ task.id }}">#{{ task.order_number }} {{ task.title }}</a> - {{ translate_status(task.status, language) }}</li>
             {% endfor %}
         </ul>
         {% else %}
-        <p>No assigned tasks</p>
+        <p class="muted">No assigned tasks</p>
         {% endif %}
     </div>
     <div class="card">
@@ -37,7 +42,7 @@
             {% endfor %}
         </ul>
         {% else %}
-        <p>No open tasks</p>
+        <p class="muted">No open tasks</p>
         {% endif %}
     </div>
     <div class="card">
@@ -49,7 +54,7 @@
             {% endfor %}
         </ul>
         {% else %}
-        <p>No history yet</p>
+        <p class="muted">No history yet</p>
         {% endif %}
     </div>
 </section>

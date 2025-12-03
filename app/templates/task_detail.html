@@ -1,20 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Task #{{ task.order_number }} - {{ task.title }}</h1>
-<div class="card">
-    <p>Status: {{ task.status }}</p>
-    <p>Category: {{ task.category }}</p>
-    <p>Due: {{ task.due_date }} {% if task.due_time %}{{ task.due_time }}{% endif %}</p>
-    <p>Proposed points: {{ task.proposed_points }}</p>
-    <p>Actual points: {{ task.actual_points or '-' }}</p>
-    <p>Priority: {{ task.priority }}</p>
-    <p>Assignee: {% if assignee %}{{ assignee.display_name }}{% else %}-{% endif %}</p>
-    <p>Creator: {{ creator.display_name }}</p>
-    <p>Description:</p>
-    <pre>{{ task.description or '-' }}</pre>
-    <p>Notes:</p>
-    <pre>{{ task.notes or '-' }}</pre>
+<div class="page-header">
+    <div>
+        <p class="eyebrow">{{ strings['tasks.heading'] }}</p>
+        <h1>#{{ task.order_number }} {{ task.title }}</h1>
+    </div>
+    <div class="status-pill status-{{ task.status }}">{{ translate_status(task.status, language) }}</div>
 </div>
+
+<div class="card task-detail">
+    <div class="detail-grid">
+        <div>
+            <p class="muted">{{ strings['tasks.assignee'] }}</p>
+            <p>{% if assignee %}{{ assignee.display_name }}{% else %}-{% endif %}</p>
+        </div>
+        <div>
+            <p class="muted">Due</p>
+            <p>{{ task.due_date }} {% if task.due_time %}{{ task.due_time }}{% endif %}</p>
+        </div>
+        <div>
+            <p class="muted">Category</p>
+            <p>{{ task.category }}</p>
+        </div>
+        <div>
+            <p class="muted">Priority</p>
+            <p>{{ translate_priority(task.priority, language) }}</p>
+        </div>
+        <div>
+            <p class="muted">Points</p>
+            <p>⭐ {{ task.proposed_points }} / {{ task.actual_points or '-' }}</p>
+        </div>
+        <div>
+            <p class="muted">Creator</p>
+            <p>{{ creator.display_name }}</p>
+        </div>
+    </div>
+    <div class="description">
+        <h3>Description / 説明</h3>
+        <p class="pre">{{ task.description or '-' }}</p>
+    </div>
+    {% if template and template.instructions %}
+    <div class="instructions">
+        <h3>{{ strings['templates.instructions'] }}</h3>
+        <div class="instruction-body">{{ render_instructions(template.instructions) }}</div>
+        {% if template.instruction_image_url %}
+        <div class="instruction-image-wrap"><img src="{{ template.instruction_image_url }}" alt="instruction image"></div>
+        {% endif %}
+    </div>
+    {% endif %}
+    <div class="notes">
+        <h3>Notes / メモ</h3>
+        <p class="pre">{{ task.notes or '-' }}</p>
+    </div>
+    <div class="order-link"><a class="ghost" href="/tasks/{{ task.id }}/order">{{ strings['tasks.orderSheet'] }}</a> | <a class="ghost" href="/tasks/{{ task.id }}/edit">{{ strings['tasks.edit'] }}</a></div>
+</div>
+
 <div class="actions">
     {% if task.status == 'open' %}
     <form method="post" action="/tasks/{{ task.id }}/action"><input type="hidden" name="action" value="claim"><button type="submit">Claim</button></form>

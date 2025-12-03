@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="order-sheet">
+    <div class="order-header">
+        <div>
+            <p class="eyebrow">{{ strings['tasks.orderSheet'] }}</p>
+            <h1>#{{ task.order_number }} {{ task.title }}</h1>
+            <p class="muted">{{ task.category }} | {{ task.due_date }} {% if task.due_time %}{{ task.due_time }}{% endif %}</p>
+        </div>
+        <div class="status-pill status-{{ task.status }}">{{ translate_status(task.status, language) }}</div>
+    </div>
+    <div class="order-body">
+        <div class="order-row">
+            <span>依頼主 / Requested by</span>
+            <strong>{{ creator.display_name }}</strong>
+        </div>
+        <div class="order-row">
+            <span>担当者 / Assignee</span>
+            <strong>{% if assignee %}{{ assignee.display_name }}{% else %}-{% endif %}</strong>
+        </div>
+        <div class="order-row">
+            <span>ポイント</span>
+            <strong>⭐ {{ task.proposed_points }}</strong>
+        </div>
+        <div class="order-row">
+            <span>優先度</span>
+            <strong>{{ translate_priority(task.priority, language) }}</strong>
+        </div>
+    </div>
+    <div class="order-notes">
+        <h3>依頼内容 / Scope</h3>
+        <p class="pre">{{ task.description or '-' }}</p>
+    </div>
+    {% if template and template.instructions %}
+    <div class="order-notes">
+        <h3>{{ strings['templates.instructions'] }}</h3>
+        <div class="instruction-body">{{ render_instructions(template.instructions) }}</div>
+        {% if template.instruction_image_url %}
+        <div class="instruction-image-wrap"><img src="{{ template.instruction_image_url }}" alt="instruction image"></div>
+        {% endif %}
+    </div>
+    {% endif %}
+    <div class="order-footer">
+        <p class="muted">発注書 / Order Sheet • Household chore board</p>
+        <a class="ghost" href="/tasks/{{ task.id }}">Back to detail</a>
+    </div>
+</div>
+{% endblock %}
