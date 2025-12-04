@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import io
+import secrets
 from dataclasses import dataclass
 from http.cookies import SimpleCookie
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Tuple
@@ -215,6 +216,39 @@ class Client:
         if json is not None:
             body = json.dumps(json).encode()
             headers = {**(headers or {}), "content-type": "application/json"}
+        elif files is not None:
+            boundary = "----httpxshim" + secrets.token_hex(8)
+            parts: list[bytes] = []
+            for key, value in (data or {}).items():
+                parts.append(
+                    f"--{boundary}\r\nContent-Disposition: form-data; name=\"{key}\"\r\n\r\n{value}\r\n".encode()
+                )
+            for key, file_value in files.items():
+                filename = "upload"
+                content_type = "application/octet-stream"
+                file_content = b""
+                if isinstance(file_value, (list, tuple)):
+                    filename = file_value[0]
+                    content_raw = file_value[1]
+                    if len(file_value) > 2 and file_value[2]:
+                        content_type = file_value[2]
+                else:
+                    filename = getattr(file_value, "filename", filename)
+                    content_raw = getattr(file_value, "read", lambda: file_value)()
+                if hasattr(content_raw, "read"):
+                    content_raw = content_raw.read()
+                if isinstance(content_raw, str):
+                    file_content = content_raw.encode()
+                else:
+                    file_content = bytes(content_raw)
+                parts.append(
+                    f"--{boundary}\r\nContent-Disposition: form-data; name=\"{key}\"; filename=\"{filename}\"\r\nContent-Type: {content_type}\r\n\r\n".encode()
+                )
+                parts.append(file_content)
+                parts.append(b"\r\n")
+            parts.append(f"--{boundary}--\r\n".encode())
+            body = b"".join(parts)
+            headers = {**(headers or {}), "content-type": f"multipart/form-data; boundary={boundary}"}
         elif data is not None:
             body = urlencode(data, doseq=True).encode()
             headers = {**(headers or {}), "content-type": "application/x-www-form-urlencoded"}

@@ -1,5 +1,6 @@
 :root {
   --bg: #fdf4ff;
+  --bg-2: #e0f2fe;
   --card: #ffffff;
   --accent: #f472b6;
   --accent-2: #a78bfa;
@@ -12,8 +13,59 @@
 
 body {
   margin: 0;
-  background: linear-gradient(135deg, #fdf4ff 0%, #e0f2fe 100%);
+  background: radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.6), transparent 25%),
+    radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.5), transparent 30%),
+    linear-gradient(135deg, var(--bg) 0%, var(--bg-2) 100%);
   color: var(--text);
+  position: relative;
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 20px 20px, rgba(255, 255, 255, 0.35) 0, rgba(255, 255, 255, 0) 40%);
+  background-size: 140px 140px;
+  opacity: 0.5;
+  z-index: 0;
+}
+
+body.theme-sakura {
+  --bg: #fff5f9;
+  --bg-2: #e0f2fe;
+  --card: #fff9fb;
+  --accent: #f472b6;
+  --accent-2: #c084fc;
+  --border: #ffd9ec;
+}
+
+body.theme-mint {
+  --bg: #e1fff4;
+  --bg-2: #d6f0ff;
+  --card: #f7fffd;
+  --accent: #2dd4bf;
+  --accent-2: #60a5fa;
+  --border: #b7f0e2;
+}
+
+body.theme-creamsicle {
+  --bg: #fff7ed;
+  --bg-2: #ffe4e6;
+  --card: #fffaf2;
+  --accent: #fbbf24;
+  --accent-2: #fb7185;
+  --border: #ffe0c2;
+}
+
+body.theme-night {
+  --bg: #ede9fe;
+  --bg-2: #c7d2fe;
+  --card: #f5f3ff;
+  --accent: #7c3aed;
+  --accent-2: #f472b6;
+  --border: #dcd7ff;
 }
 
 header {
@@ -63,6 +115,7 @@ nav a:hover,
 .logout-form button { cursor: pointer; }
 
 main { padding: 18px; max-width: 1100px; margin: 0 auto; }
+main { position: relative; z-index: 1; }
 
 .card {
   background: var(--card);

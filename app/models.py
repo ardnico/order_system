@@ -38,6 +38,7 @@ class Household(SQLModel, table=True):
     join_code: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     language: str = Field(default="en")
+    theme: str = Field(default="sakura")
 
     users: list["User"] = Relationship(back_populates="household")
 

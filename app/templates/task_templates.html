@@ -3,20 +3,22 @@
 <h1>{{ strings['templates.heading'] }}</h1>
 <div class="grid">
     <div class="card">
-        <h3>新規テンプレート</h3>
-        <form method="post">
-            <label>Title<input type="text" name="title" required></label>
-            <label>Default category<input type="text" name="default_category"></label>
-            <label>Default points<input type="number" name="default_points"></label>
-            <label>Relative due days<input type="number" name="relative_due_days" placeholder="e.g. 3"></label>
-            <label>Memo<textarea name="memo"></textarea></label>
+        <h3>{{ strings['templates.new'] }}</h3>
+        <form method="post" enctype="multipart/form-data">
+            <label>Title / タイトル<input type="text" name="title" required></label>
+            <label>Default category / カテゴリ<input type="text" name="default_category"></label>
+            <label>Default points / ポイント<input type="number" name="default_points"></label>
+            <label>{{ strings['templates.relative'] }}<input type="number" name="relative_due_days" placeholder="3"></label>
+            <label>{{ strings['templates.memo'] }}<textarea name="memo"></textarea></label>
             <label>{{ strings['templates.instructions'] }} (AsciiDoc OK)<textarea name="instructions" placeholder="= Heading\n* step\nimage::https://..."></textarea></label>
-            <label>Instruction image URL<input type="url" name="instruction_image_url"></label>
-            <button type="submit">Save</button>
+            <label>{{ strings['templates.upload'] }}<input type="file" name="instruction_image_file" accept="image/*"></label>
+            <label>Image URL / 画像URL<input type="url" name="instruction_image_url" placeholder="https://..."></label>
+            <p class="muted">{{ strings['templates.embedGuide'] }} {{ strings['tasks.instructionsHint'] }}</p>
+            <button type="submit">{{ strings['templates.save'] }}</button>
         </form>
     </div>
     <div class="card">
-        <h3>Existing templates</h3>
+        <h3>{{ strings['templates.existing'] }}</h3>
         {% if templates %}
             {% for t in templates %}
             <div class="template-edit">
@@ -30,25 +32,26 @@
                         <div class="instruction-image-wrap"><img src="{{ t.instruction_image_url }}" alt="template image"></div>
                     {% endif %}
                 </div>
-                <form method="post" action="/templates/tasks/{{ t.id }}/edit" class="template-form">
-                    <label>Title<input type="text" name="title" value="{{ t.title }}" required></label>
-                    <label>Default category<input type="text" name="default_category" value="{{ t.default_category or '' }}"></label>
-                    <label>Default points<input type="number" name="default_points" value="{{ t.default_points or '' }}"></label>
-                    <label>Relative due days<input type="number" name="relative_due_days" value="{{ t.relative_due_days if t.relative_due_days is not none else '' }}"></label>
-                    <label>Memo<textarea name="memo">{{ t.memo or '' }}</textarea></label>
+                <form method="post" action="/templates/tasks/{{ t.id }}/edit" class="template-form" enctype="multipart/form-data">
+                    <label>Title / タイトル<input type="text" name="title" value="{{ t.title }}" required></label>
+                    <label>Default category / カテゴリ<input type="text" name="default_category" value="{{ t.default_category or '' }}"></label>
+                    <label>Default points / ポイント<input type="number" name="default_points" value="{{ t.default_points or '' }}"></label>
+                    <label>{{ strings['templates.relative'] }}<input type="number" name="relative_due_days" value="{{ t.relative_due_days if t.relative_due_days is not none else '' }}"></label>
+                    <label>{{ strings['templates.memo'] }}<textarea name="memo">{{ t.memo or '' }}</textarea></label>
                     <label>{{ strings['templates.instructions'] }}<textarea name="instructions">{{ t.instructions or '' }}</textarea></label>
-                    <label>Instruction image URL<input type="url" name="instruction_image_url" value="{{ t.instruction_image_url or '' }}"></label>
+                    <label>{{ strings['templates.upload'] }}<input type="file" name="instruction_image_file" accept="image/*"></label>
+                    <label>Image URL / 画像URL<input type="url" name="instruction_image_url" value="{{ t.instruction_image_url or '' }}"></label>
                     <div class="actions">
-                        <button type="submit">Update</button>
+                        <button type="submit">{{ strings['templates.update'] }}</button>
                     </div>
                 </form>
                 <form method="post" action="/templates/tasks/{{ t.id }}/delete" class="inline">
-                    <button type="submit" class="ghost">Delete</button>
+                    <button type="submit" class="ghost">{{ strings['templates.delete'] }}</button>
                 </form>
             </div>
             {% endfor %}
         {% else %}
-        <p>No templates yet.</p>
+        <p class="muted">{{ strings['tasks.noTemplates'] }}</p>
         {% endif %}
     </div>
 </div>
