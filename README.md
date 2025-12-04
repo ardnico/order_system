@@ -8,7 +8,10 @@ A FastAPI-based web app for managing household chores as tasks with point reward
 - Task templates with defaults and relative due dates.
 - Reward templates and reward usage requests with approval and point deduction.
 - Point balances and history per user and household.
-- HTML UI with simple styling for desktop and mobile widths.
+- Cute, pastel HTML UI with Japanese/English language toggle.
+- Task assignment defaults and filters (assigned/all/completed) plus order-sheet view.
+- Task template instructions with AsciiDoc-like steps and optional images.
+- Recurring task rules per template with assignee targeting.
 
 ## Getting started
 1. Install dependencies (Python 3.11+ recommended):
@@ -42,3 +45,4 @@ pytest
 ## Notes
 - If the SQLite database becomes unusable during local development, stop the server, delete `order_system.db`, and restart the app to recreate tables.
 - The app is intended for small household use and does not include external integrations.
+- This repository vendors lightweight `httpx` and `itsdangerous` shims so tests can run without external downloads when network access is blocked. If you have internet access, installing the requirements will use the upstream packages instead.

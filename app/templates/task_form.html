@@ -1,30 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Create Task</h1>
-<form method="post" class="card">
-    <label>Title<input type="text" name="title" value="{{ template.title if template else '' }}" required></label>
-    <label>Description<textarea name="description">{{ template.memo if template else '' }}</textarea></label>
-    <label>Category
+{% set is_edit = task is defined %}
+<h1>{{ strings['tasks.edit'] if is_edit else strings['tasks.new'] }}</h1>
+<form method="post" class="card" action="{{ '/tasks/' ~ task.id ~ '/edit' if is_edit else '/tasks/new' }}">
+    {% if template %}
+    <input type="hidden" name="task_template_id" value="{{ template.id }}">
+    {% endif %}
+    <label>タイトル / Title<input type="text" name="title" value="{{ task.title if is_edit else (template.title if template else '') }}" required></label>
+    <label>説明 / Description<textarea name="description">{{ task.description if is_edit else (template.memo if template else '') }}</textarea></label>
+    <label>カテゴリ / Category
+        {% set cat = task.category if is_edit else (template.default_category if template else '') %}
         <select name="category">
-            {% set cat = template.default_category if template else '' %}
-            <option value="cleaning" {% if cat=='cleaning' %}selected{% endif %}>Cleaning</option>
-            <option value="cooking" {% if cat=='cooking' %}selected{% endif %}>Cooking</option>
-            <option value="laundry" {% if cat=='laundry' %}selected{% endif %}>Laundry</option>
-            <option value="shopping" {% if cat=='shopping' %}selected{% endif %}>Shopping</option>
-            <option value="other" {% if cat=='other' %}selected{% endif %}>Other</option>
+            <option value="cleaning" {% if cat=='cleaning' %}selected{% endif %}>Cleaning / 掃除</option>
+            <option value="cooking" {% if cat=='cooking' %}selected{% endif %}>Cooking / 料理</option>
+            <option value="laundry" {% if cat=='laundry' %}selected{% endif %}>Laundry / 洗濯</option>
+            <option value="shopping" {% if cat=='shopping' %}selected{% endif %}>Shopping / 買い物</option>
+            <option value="other" {% if cat=='other' %}selected{% endif %}>Other / その他</option>
         </select>
     </label>
-    <label>Due date<input type="date" name="due_date" value="{{ default_due_date }}" required></label>
-    <label>Due time<input type="time" name="due_time"></label>
-    <label>Proposed points<input type="number" name="proposed_points" value="{{ template.default_points if template and template.default_points is not none else '' }}" required></label>
-    <label>Priority
+    <label>期限 / Due date<input type="date" name="due_date" value="{{ task.due_date if is_edit else default_due_date }}" required></label>
+    <label>時間 / Due time<input type="time" name="due_time" value="{{ task.due_time.strftime('%H:%M') if is_edit and task.due_time else '' }}"></label>
+    <label>ポイント / Proposed points<input type="number" name="proposed_points" value="{{ task.proposed_points if is_edit else (template.default_points if template and template.default_points is not none else '') }}" required></label>
+    <label>優先度 / Priority
+        {% set pri = task.priority.value if is_edit else 'medium' %}
         <select name="priority">
-            <option value="high">High</option>
-            <option value="medium" selected>Medium</option>
-            <option value="low">Low</option>
+            <option value="high" {% if pri=='high' %}selected{% endif %}>High / 高</option>
+            <option value="medium" {% if pri=='medium' %}selected{% endif %}>Medium / 中</option>
+            <option value="low" {% if pri=='low' %}selected{% endif %}>Low / 低</option>
         </select>
     </label>
-    <label>Notes<textarea name="notes"></textarea></label>
-    <button type="submit">Create</button>
+    <label>{{ strings["tasks.assignee"] }}
+        {% set selected_assignee = task.assignee_user_id if is_edit else user.id %}
+        <select name="assignee_user_id">
+            {% for member in assignees %}
+                <option value="{{ member.id }}" {% if selected_assignee == member.id %}selected{% endif %}>{{ member.display_name }}</option>
+            {% endfor %}
+            <option value="" {% if not selected_assignee %}selected{% endif %}>-</option>
+        </select>
+    </label>
+    <label>メモ / Notes<textarea name="notes">{{ task.notes if is_edit else '' }}</textarea></label>
+    <div class="actions">
+        <button type="submit">{{ strings['tasks.save'] if is_edit else strings['tasks.new'] }}</button>
+        {% if is_edit %}<a class="ghost" href="/tasks/{{ task.id }}">Cancel</a>{% endif %}
+    </div>
 </form>
 {% endblock %}
