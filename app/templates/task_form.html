@@ -41,7 +41,7 @@
     <label>メモ / Notes<textarea name="notes">{{ task.notes if is_edit else '' }}</textarea></label>
     <div class="actions">
         <button type="submit">{{ strings['tasks.save'] if is_edit else strings['tasks.new'] }}</button>
-        {% if is_edit %}<a class="ghost" href="/tasks/{{ task.id }}">Cancel</a>{% endif %}
+        {% if is_edit %}<a class="ghost" href="/tasks/{{ task.id }}">{{ strings['tasks.cancel'] }}</a>{% endif %}
     </div>
 </form>
 {% endblock %}

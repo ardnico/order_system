@@ -23,12 +23,12 @@
             <span>{{ strings["tasks.assignee"] }}: {% if task.assignee_user_id %}{{ user_map[task.assignee_user_id].display_name if user_map.get(task.assignee_user_id) else task.assignee_user_id }}{% else %}-{% endif %}</span>
         </div>
         <div class="task-actions">
-            <a class="ghost" href="/tasks/{{ task.id }}">Detail</a>
+            <a class="ghost" href="/tasks/{{ task.id }}">{{ strings['tasks.detailLink'] }}</a>
             <a class="ghost" href="/tasks/{{ task.id }}/order">{{ strings["tasks.orderSheet"] }}</a>
         </div>
     </div>
     {% else %}
-    <p class="muted">(No tasks in this view)</p>
+    <p class="muted">{{ strings['tasks.none'] }}</p>
     {% endfor %}
 </div>
 
@@ -39,10 +39,10 @@
         <h4>{{ t.title }}</h4>
         <p>{{ t.default_category or '-' }} / ⭐ {{ t.default_points or '-' }}</p>
         <p>{% if t.relative_due_days is not none %}+{{ t.relative_due_days }} days{% else %}-{% endif %}</p>
-        <a class="button" href="/tasks/new?template_id={{ t.id }}">Create from template</a>
+        <a class="button" href="/tasks/new?template_id={{ t.id }}">{{ strings['tasks.createFromTemplate'] }}</a>
     </div>
     {% else %}
-    <p class="muted">No templates yet.</p>
+    <p class="muted">{{ strings['tasks.noTemplates'] }}</p>
     {% endfor %}
 </div>
 {% endblock %}

@@ -5,7 +5,7 @@ from typing import Optional
 
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -47,6 +47,8 @@ app.add_middleware(
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 templates_dir = os.path.join(os.path.dirname(__file__), "templates")
+uploads_dir = os.path.join(static_dir, "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 templates = Jinja2Templates(directory=templates_dir)
 
@@ -61,6 +63,13 @@ UI_STRINGS = {
         "nav.settings": "Settings",
         "nav.logout": "Logout",
         "dashboard.title": "Welcome",
+        "dashboard.balance": "My balance",
+        "dashboard.house": "Household balances",
+        "dashboard.noAssigned": "No assigned tasks",
+        "dashboard.open": "Open tasks",
+        "dashboard.noOpen": "No open tasks",
+        "dashboard.recent": "Recent transactions",
+        "dashboard.noHistory": "No history yet",
         "tasks.heading": "Tasks",
         "tasks.assigned": "Assigned to me",
         "tasks.all": "All tasks",
@@ -70,8 +79,38 @@ UI_STRINGS = {
         "tasks.edit": "Edit Task",
         "tasks.save": "Save Task",
         "tasks.assignee": "Assignee",
+        "tasks.detail": "Detail",
+        "tasks.detailLink": "Detail",
+        "tasks.createFromTemplate": "Create from template",
+        "tasks.none": "(No tasks in this view)",
+        "tasks.noTemplates": "No templates yet.",
+        "tasks.category": "Category",
+        "tasks.due": "Due",
+        "tasks.priority": "Priority",
+        "tasks.points": "Points",
+        "tasks.creator": "Creator",
+        "tasks.description": "Description",
+        "tasks.notes": "Notes",
+        "tasks.claim": "Claim",
+        "tasks.start": "Start",
+        "tasks.submit": "Submit completion",
+        "tasks.approve": "Approve",
+        "tasks.cancel": "Cancel",
+        "tasks.active": "Active",
+        "tasks.pointsAwarded": "Points awarded",
+        "tasks.instructionsHint": "Use image::<url>[] to embed photos.",
         "templates.heading": "Task Templates",
         "templates.instructions": "Instructions",
+        "templates.new": "New template",
+        "templates.existing": "Existing templates",
+        "templates.relative": "Relative due days",
+        "templates.memo": "Memo",
+        "templates.save": "Save",
+        "templates.update": "Update",
+        "templates.delete": "Delete",
+        "templates.upload": "Upload instruction image",
+        "templates.uploaded": "Uploaded image",
+        "templates.embedGuide": "Embed with image::<url>[] inside instructions.",
         "settings.heading": "Settings",
         "settings.language": "Language",
         "settings.recurring": "Recurring tasks",
@@ -79,6 +118,16 @@ UI_STRINGS = {
         "settings.language.en": "English",
         "settings.recurring.add": "Add recurring rule",
         "settings.recurring.next": "Next run date",
+        "settings.frequency.daily": "Daily",
+        "settings.frequency.weekly": "Weekly",
+        "settings.frequency.monthly": "Monthly",
+        "settings.recurring.none": "No recurring rules yet.",
+        "settings.theme": "Color theme",
+        "settings.theme.sakura": "Sakura pastel",
+        "settings.theme.mint": "Mint soda",
+        "settings.theme.creamsicle": "Creamsicle",
+        "settings.theme.night": "Twilight",
+        "settings.update": "Update",
     },
     "ja": {
         "brand": "おうちタスクボード",
@@ -90,6 +139,13 @@ UI_STRINGS = {
         "nav.settings": "設定",
         "nav.logout": "ログアウト",
         "dashboard.title": "ようこそ",
+        "dashboard.balance": "自分の残高",
+        "dashboard.house": "家族の残高一覧",
+        "dashboard.noAssigned": "担当タスクなし",
+        "dashboard.open": "未対応タスク",
+        "dashboard.noOpen": "未対応タスクなし",
+        "dashboard.recent": "最近の取引",
+        "dashboard.noHistory": "履歴はまだありません",
         "tasks.heading": "タスク一覧",
         "tasks.assigned": "担当タスク",
         "tasks.all": "全て",
@@ -99,8 +155,38 @@ UI_STRINGS = {
         "tasks.edit": "タスク編集",
         "tasks.save": "保存",
         "tasks.assignee": "担当",
+        "tasks.detail": "詳細",
+        "tasks.detailLink": "詳細",
+        "tasks.createFromTemplate": "テンプレートから作成",
+        "tasks.none": "(該当タスクなし)",
+        "tasks.noTemplates": "テンプレートがまだありません",
+        "tasks.category": "カテゴリ",
+        "tasks.due": "期限",
+        "tasks.priority": "優先度",
+        "tasks.points": "ポイント",
+        "tasks.creator": "作成者",
+        "tasks.description": "説明",
+        "tasks.notes": "メモ",
+        "tasks.claim": "受注する",
+        "tasks.start": "開始する",
+        "tasks.submit": "完了を提出",
+        "tasks.approve": "承認する",
+        "tasks.cancel": "キャンセル",
+        "tasks.active": "有効",
+        "tasks.pointsAwarded": "ポイント付与済み",
+        "tasks.instructionsHint": "image::<url>[] で写真を挿入できます",
         "templates.heading": "タスクテンプレート",
         "templates.instructions": "実施手順",
+        "templates.new": "新規テンプレート",
+        "templates.existing": "テンプレート一覧",
+        "templates.relative": "相対期限(日)",
+        "templates.memo": "メモ",
+        "templates.save": "保存",
+        "templates.update": "更新",
+        "templates.delete": "削除",
+        "templates.upload": "手順用の画像をアップロード",
+        "templates.uploaded": "アップロード済み画像",
+        "templates.embedGuide": "手順に image::<url>[] を差し込んで表示できます",
         "settings.heading": "設定",
         "settings.language": "言語",
         "settings.recurring": "定期タスク設定",
@@ -108,6 +194,16 @@ UI_STRINGS = {
         "settings.language.en": "英語",
         "settings.recurring.add": "定期ルール追加",
         "settings.recurring.next": "次回作成日",
+        "settings.frequency.daily": "毎日",
+        "settings.frequency.weekly": "毎週",
+        "settings.frequency.monthly": "毎月",
+        "settings.recurring.none": "定期ルールはまだありません",
+        "settings.theme": "カラーテーマ",
+        "settings.theme.sakura": "さくらパステル",
+        "settings.theme.mint": "ミントソーダ",
+        "settings.theme.creamsicle": "クリームソーダ",
+        "settings.theme.night": "ゆめかわツイライト",
+        "settings.update": "更新",
     },
 }
 
@@ -125,6 +221,9 @@ PRIORITY_LABELS = {
     "medium": {"en": "Medium", "ja": "中"},
     "low": {"en": "Low", "ja": "低"},
 }
+
+THEME_CHOICES = ["sakura", "mint", "creamsicle", "night"]
+ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
 
 def get_strings(language: str) -> dict:
@@ -144,6 +243,17 @@ def get_language(request: Request, session: Session, user: Optional[User] = None
     lang = lang or "en"
     request.session["language"] = lang
     return lang
+
+
+def get_theme(request: Request, session: Session, user: Optional[User] = None) -> str:
+    theme = request.session.get("theme")
+    if not theme and user:
+        household = session.get(Household, user.household_id)
+        if household:
+            theme = household.theme
+    theme = theme or THEME_CHOICES[0]
+    request.session["theme"] = theme
+    return theme
 
 
 def translate_status(status: TaskStatus, language: str) -> str:
@@ -187,15 +297,32 @@ def render_instructions(text: Optional[str]) -> Markup:
     return Markup("\n".join(html_parts))
 
 
+async def store_instruction_upload(file: Optional[UploadFile]) -> Optional[str]:
+    if not file or not file.filename:
+        return None
+    ext = os.path.splitext(file.filename)[1].lower() or ".png"
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        ext = ".png"
+    filename = f"instruction-{secrets.token_hex(8)}{ext}"
+    path = os.path.join(uploads_dir, filename)
+    content = await file.read()
+    with open(path, "wb") as f:
+        f.write(content)
+    return f"/static/uploads/{filename}"
+
+
 def build_context(
     request: Request, session: Session, user: Optional[User] = None, extra: Optional[dict] = None
 ) -> dict:
     language = get_language(request, session, user)
+    theme = get_theme(request, session, user)
     context = {
         "request": request,
         "user": user,
         "language": language,
+        "theme": theme,
         "strings": get_strings(language),
+        "theme_choices": THEME_CHOICES,
         "flash_messages": pop_flash(request),
         "translate_status": translate_status,
         "translate_priority": translate_priority,
@@ -514,16 +641,19 @@ def settings_page(
 async def update_language(
     request: Request,
     language: str = Form(...),
+    theme: str = Form("sakura"),
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
     household = session.get(Household, user.household_id)
     if household:
         household.language = language
+        household.theme = theme if theme in THEME_CHOICES else household.theme
         session.add(household)
         session.commit()
     request.session["language"] = language
-    flash(request, "Language updated")
+    request.session["theme"] = theme if theme in THEME_CHOICES else request.session.get("theme", THEME_CHOICES[0])
+    flash(request, "Language and theme updated")
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -903,9 +1033,15 @@ async def create_task_template(
     memo: Optional[str] = Form(None),
     instructions: Optional[str] = Form(None),
     instruction_image_url: Optional[str] = Form(None),
+    instruction_image_file: Optional[UploadFile] = File(None),
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    uploaded_url = await store_instruction_upload(instruction_image_file)
+    final_instruction_url = instruction_image_url or uploaded_url
+    final_instructions = instructions or ""
+    if uploaded_url and uploaded_url not in final_instructions:
+        final_instructions = (final_instructions + "\n" if final_instructions else "") + f"image::{uploaded_url}[]"
     template = TaskTemplate(
         household_id=user.household_id,
         title=title,
@@ -913,8 +1049,8 @@ async def create_task_template(
         default_points=default_points,
         relative_due_days=relative_due_days,
         memo=memo,
-        instructions=instructions,
-        instruction_image_url=instruction_image_url,
+        instructions=final_instructions or None,
+        instruction_image_url=final_instruction_url,
     )
     session.add(template)
     session.commit()
@@ -933,6 +1069,7 @@ async def edit_task_template(
     memo: Optional[str] = Form(None),
     instructions: Optional[str] = Form(None),
     instruction_image_url: Optional[str] = Form(None),
+    instruction_image_file: Optional[UploadFile] = File(None),
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
@@ -944,13 +1081,18 @@ async def edit_task_template(
     if not template:
         flash(request, "Template not found", "error")
         return RedirectResponse("/templates/tasks", status_code=303)
+    uploaded_url = await store_instruction_upload(instruction_image_file)
     template.title = title
     template.default_category = default_category
     template.default_points = default_points
     template.relative_due_days = relative_due_days
     template.memo = memo
-    template.instructions = instructions
-    template.instruction_image_url = instruction_image_url
+    candidate_instructions = instructions or ""
+    final_image_url = instruction_image_url or uploaded_url or template.instruction_image_url
+    if uploaded_url and uploaded_url not in candidate_instructions:
+        candidate_instructions = (candidate_instructions + "\n" if candidate_instructions else "") + f"image::{uploaded_url}[]"
+    template.instructions = candidate_instructions or None
+    template.instruction_image_url = final_image_url
     session.add(template)
     session.commit()
     flash(request, "Template updated")

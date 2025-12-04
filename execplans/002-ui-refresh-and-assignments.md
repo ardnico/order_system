@@ -15,6 +15,7 @@ Deliver a more polished household chore board where families can use a cute, Jap
 - [x] Implemented recurring task scheduler hook and settings page for language and auto-generation rules.
 - [x] Write/adjust tests and validate manually plus pytest.
 - [x] (2025-12-04 00:00Z) Finalized cleanup by moving startup work to FastAPI lifespan and updating template responses to silence deprecation warnings.
+- [x] (2025-12-05 00:00Z) Added instruction image uploads with auto-embedding, theme selection, fuller Japanese copy, and tests for the new preferences/uploads.
 
 ## Surprises & Discoveries
 
@@ -22,6 +23,8 @@ Deliver a more polished household chore board where families can use a cute, Jap
   Evidence: pytest warnings summary still notes the crypt deprecation after addressing FastAPI warnings.
 - Observation: Starlette TemplateResponse now expects the Request as the first argument; updating call sites removes the warning spam during tests.
   Evidence: Warning text suggested replacing `TemplateResponse(name, {"request": request})` with `TemplateResponse(request, name)`; calls were updated accordingly.
+- Observation: Accepting file uploads in the existing template edit routes required multipart forms; FastAPI handles mixed Form/File inputs cleanly once the template forms were updated.
+  Evidence: Test client posts with `files={"instruction_image_file": ...}` succeed and persist URLs in templates.
 
 ## Decision Log
 
@@ -37,10 +40,17 @@ Deliver a more polished household chore board where families can use a cute, Jap
 - Decision: Replace the deprecated FastAPI on_event startup hook with a lifespan handler to run init_db once and clear test warnings.
   Rationale: Aligns with FastAPI guidance and keeps startup behavior explicit without altering runtime flow.
   Date/Author: 2025-12-04 / assistant.
+- Decision: Persist household color themes and map them to CSS variable sets instead of hard-coded colors.
+  Rationale: Keeps the UI flexible for multiple cute looks while reusing the same templates and variables.
+  Date/Author: 2025-12-05 / assistant.
+- Decision: Append uploaded instruction images into the instruction text using `image::/static/uploads/...[]` so the same field drives both display and editing.
+  Rationale: Satisfies the embed requirement without adding a second rendering path or external storage dependency.
+  Date/Author: 2025-12-05 / assistant.
 
 ## Outcomes & Retrospective
 
 Delivered a pastel, bilingual UI with default assigned-task focus, filter pills, and editable tasks. Households can toggle Japanese/English, edit task and template details with AsciiDoc-like instructions and photos, and view an order-sheet style summary. Recurring rules generate tasks on dashboard/task access based on next_run_date. Added tests for assignment filtering and recurring creation; pytest passes, and app warnings are reduced to only the upstream passlib crypt notice.
+Latest updates add image uploads embedded directly into instructions, multiple cute color themes stored per household, stronger Japanese labels across dashboard/settings/task pages, a cuter patterned background, and tests covering uploads and theme persistence.
 
 ## Context and Orientation
 
