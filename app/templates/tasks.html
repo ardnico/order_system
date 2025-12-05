@@ -19,6 +19,7 @@
         <div class="task-meta">
             <span>{{ task.category }}</span>
             <span>{{ task.due_date }}</span>
+            <span class="priority">⬆️ {{ task.priority }}</span>
             <span class="points">⭐ {{ task.proposed_points }}</span>
             <span>{{ strings["tasks.assignee"] }}: {% if task.assignee_user_id %}{{ user_map[task.assignee_user_id].display_name if user_map.get(task.assignee_user_id) else task.assignee_user_id }}{% else %}-{% endif %}</span>
         </div>

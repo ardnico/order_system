@@ -19,6 +19,12 @@ def register_user(client, name="Alice", email="alice@example.com"):
     )
 
 
+def test_household_starts_with_presets(client, session: Session):
+    register_user(client)
+    templates = session.exec(select(TaskTemplate)).all()
+    assert len(templates) >= 5
+
+
 def test_task_list_defaults_to_assigned(client, session: Session):
     register_user(client)
     client.post(
@@ -29,7 +35,7 @@ def test_task_list_defaults_to_assigned(client, session: Session):
             "category": "cleaning",
             "due_date": "2025-01-15",
             "proposed_points": 5,
-            "priority": "medium",
+            "priority": 3,
         },
     )
     client.post(
@@ -40,7 +46,7 @@ def test_task_list_defaults_to_assigned(client, session: Session):
             "category": "cleaning",
             "due_date": "2025-01-15",
             "proposed_points": 3,
-            "priority": "medium",
+            "priority": 2,
         },
     )
     # remove assignee from second task to verify filter hides it
@@ -69,7 +75,9 @@ def test_recurring_rule_generates_tasks(client, session: Session):
             "memo": "Take out trash",
         },
     )
-    template = session.exec(select(TaskTemplate)).first()
+    template = session.exec(
+        select(TaskTemplate).where(TaskTemplate.title == "Weekly Trash")
+    ).first()
     client.post(
         "/settings/recurring",
         data={

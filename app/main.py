@@ -20,7 +20,6 @@ from .models import (
     Household,
     PointTransaction,
     PointTransactionType,
-    Priority,
     RewardStatus,
     RewardTemplate,
     RewardUse,
@@ -216,12 +215,6 @@ STATUS_LABELS = {
     "cancelled": {"en": "Cancelled", "ja": "キャンセル"},
 }
 
-PRIORITY_LABELS = {
-    "high": {"en": "High", "ja": "高"},
-    "medium": {"en": "Medium", "ja": "中"},
-    "low": {"en": "Low", "ja": "低"},
-}
-
 THEME_CHOICES = ["sakura", "mint", "creamsicle", "night"]
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
@@ -258,10 +251,6 @@ def get_theme(request: Request, session: Session, user: Optional[User] = None) -
 
 def translate_status(status: TaskStatus, language: str) -> str:
     return STATUS_LABELS.get(status.value, {}).get(language, status.value)
-
-
-def translate_priority(priority: Priority, language: str) -> str:
-    return PRIORITY_LABELS.get(priority.value, {}).get(language, priority.value)
 
 
 def render_instructions(text: Optional[str]) -> Markup:
@@ -325,7 +314,6 @@ def build_context(
         "theme_choices": THEME_CHOICES,
         "flash_messages": pop_flash(request),
         "translate_status": translate_status,
-        "translate_priority": translate_priority,
         "render_instructions": render_instructions,
     }
     if extra:
@@ -393,6 +381,67 @@ def get_reward_use(session: Session, household_id: int, reward_use_id: int) -> R
     return reward_use
 
 
+def seed_household_templates(session: Session, household_id: int):
+    existing = session.exec(
+        select(func.count(TaskTemplate.id)).where(TaskTemplate.household_id == household_id)
+    ).one()
+    if existing and existing[0]:
+        return
+    presets = [
+        {
+            "title": "毎日のリビング片付け / Living room tidy",
+            "default_category": "cleaning",
+            "default_points": 3,
+            "relative_due_days": 0,
+            "memo": "おもちゃ・雑誌を片付け、テーブルを拭く",
+            "instructions": "* クッションを整える\n* テーブルを拭く\n* 床に落ちているものを回収",
+        },
+        {
+            "title": "夕食後の皿洗い / Dishes after dinner",
+            "default_category": "cooking",
+            "default_points": 4,
+            "relative_due_days": 0,
+            "memo": "食洗機または手洗いで片付け",
+            "instructions": "* 食器をまとめて予洗い\n* 食洗機に入れる or 手洗いする\n* シンク周りを拭く",
+        },
+        {
+            "title": "ゴミ出し準備 / Trash day prep",
+            "default_category": "cleaning",
+            "default_points": 2,
+            "relative_due_days": 0,
+            "memo": "燃えるゴミをまとめて玄関へ",
+            "instructions": "* 各部屋のゴミ箱を回収\n* 袋の口を固く結ぶ\n* 玄関に置いておく",
+        },
+        {
+            "title": "洗濯＆干し / Laundry wash & hang",
+            "default_category": "laundry",
+            "default_points": 5,
+            "relative_due_days": 0,
+            "memo": "洗濯から干しまで担当",
+            "instructions": "* 洗濯機を回す\n* 仕分けして干す\n* 物干しを整える",
+        },
+        {
+            "title": "お風呂掃除 / Bathroom scrub",
+            "default_category": "cleaning",
+            "default_points": 4,
+            "relative_due_days": 1,
+            "memo": "浴槽と床の掃除",
+            "instructions": "* 換気を回す\n* 浴槽ブラシでこする\n* 床と排水口を洗う",
+        },
+        {
+            "title": "買い出しリストチェック / Grocery restock",
+            "default_category": "shopping",
+            "default_points": 3,
+            "relative_due_days": 2,
+            "memo": "冷蔵庫・パントリーを確認",
+            "instructions": "* 残量を確認\n* なくなりそうなものをメモ\n* リストを家族と共有",
+        },
+    ]
+    for preset in presets:
+        session.add(TaskTemplate(household_id=household_id, **preset))
+    session.commit()
+
+
 def run_recurring_rules(session: Session, household_id: int, created_by_user_id: int):
     today = date.today()
     rules = session.exec(
@@ -419,7 +468,7 @@ def run_recurring_rules(session: Session, household_id: int, created_by_user_id:
             category=template.default_category or "",
             due_date=due_date,
             proposed_points=template.default_points or 0,
-            priority=Priority.medium,
+            priority=3,
             status=TaskStatus.open,
             created_by_user_id=created_by_user_id,
             assignee_user_id=rule.assignee_user_id,
@@ -524,6 +573,7 @@ async def register(
         session.add(household)
         session.commit()
         session.refresh(household)
+        seed_household_templates(session, household.id)
     else:
         if not household_id:
             flash(request, "Select a household", "error")
@@ -787,7 +837,7 @@ async def create_task(
     due_date: date = Form(...),
     due_time: Optional[str] = Form(None),
     proposed_points: int = Form(...),
-    priority: str = Form("medium"),
+    priority: int = Form(3),
     notes: Optional[str] = Form(None),
     assignee_user_id: Optional[int] = Form(None),
     task_template_id: Optional[int] = Form(None),
@@ -811,7 +861,7 @@ async def create_task(
         due_date=due_date,
         due_time=parsed_time,
         proposed_points=proposed_points,
-        priority=Priority(priority),
+        priority=priority,
         status=TaskStatus.open,
         created_by_user_id=user.id,
         assignee_user_id=assignee_user_id or user.id,
@@ -858,7 +908,7 @@ async def edit_task(
     due_date: date = Form(...),
     due_time: Optional[str] = Form(None),
     proposed_points: int = Form(...),
-    priority: str = Form("medium"),
+    priority: int = Form(3),
     notes: Optional[str] = Form(None),
     assignee_user_id: Optional[int] = Form(None),
     session: Session = Depends(get_session),
@@ -878,7 +928,7 @@ async def edit_task(
     task.due_date = due_date
     task.due_time = parsed_time
     task.proposed_points = proposed_points
-    task.priority = Priority(priority)
+    task.priority = priority
     task.notes = notes
     task.assignee_user_id = assignee_user_id or task.assignee_user_id or user.id
     task.updated_at = datetime.utcnow()

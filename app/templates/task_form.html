@@ -21,14 +21,7 @@
     <label>期限 / Due date<input type="date" name="due_date" value="{{ task.due_date if is_edit else default_due_date }}" required></label>
     <label>時間 / Due time<input type="time" name="due_time" value="{{ task.due_time.strftime('%H:%M') if is_edit and task.due_time else '' }}"></label>
     <label>ポイント / Proposed points<input type="number" name="proposed_points" value="{{ task.proposed_points if is_edit else (template.default_points if template and template.default_points is not none else '') }}" required></label>
-    <label>優先度 / Priority
-        {% set pri = task.priority.value if is_edit else 'medium' %}
-        <select name="priority">
-            <option value="high" {% if pri=='high' %}selected{% endif %}>High / 高</option>
-            <option value="medium" {% if pri=='medium' %}selected{% endif %}>Medium / 中</option>
-            <option value="low" {% if pri=='low' %}selected{% endif %}>Low / 低</option>
-        </select>
-    </label>
+    <label>優先度 / Priority (1-5)<input type="number" min="1" max="5" name="priority" value="{{ task.priority if is_edit else 3 }}" required></label>
     <label>{{ strings["tasks.assignee"] }}
         {% set selected_assignee = task.assignee_user_id if is_edit else user.id %}
         <select name="assignee_user_id">

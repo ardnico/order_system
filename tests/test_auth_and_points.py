@@ -31,7 +31,7 @@ def test_task_approval_awards_points(client, session: Session):
             "category": "cleaning",
             "due_date": "2025-01-15",
             "proposed_points": 10,
-            "priority": "medium",
+            "priority": 3,
         },
         follow_redirects=False,
     )

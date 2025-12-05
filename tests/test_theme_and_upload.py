@@ -35,7 +35,9 @@ def test_instruction_image_upload_embeds_in_template(client, session):
     )
     assert resp.status_code in (200, 303)
 
-    template = session.exec(select(TaskTemplate)).first()
+    template = session.exec(
+        select(TaskTemplate).where(TaskTemplate.title == "Photo chore")
+    ).first()
     assert template is not None
     assert template.instruction_image_url is not None
     assert template.instruction_image_url.startswith("/static/uploads/")

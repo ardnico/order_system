@@ -4,13 +4,6 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel, Relationship
 
-
-class Priority(str, Enum):
-    high = "high"
-    medium = "medium"
-    low = "low"
-
-
 class TaskStatus(str, Enum):
     open = "open"  # 発注中
     assigned = "assigned"  # 受注済み
@@ -66,7 +59,7 @@ class Task(SQLModel, table=True):
     due_time: Optional[time] = None
     proposed_points: int
     actual_points: Optional[int] = None
-    priority: Priority = Field(default=Priority.medium)
+    priority: int = Field(default=3)
     status: TaskStatus = Field(default=TaskStatus.open)
     created_by_user_id: int = Field(foreign_key="user.id")
     assignee_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
@@ -146,12 +139,11 @@ __all__ = [
     "User",
     "Task", 
     "TaskTemplate", 
-    "RewardTemplate", 
-    "RewardUse", 
-    "PointTransaction", 
-    "Priority", 
-    "TaskStatus", 
-    "RewardStatus", 
+    "RewardTemplate",
+    "RewardUse",
+    "PointTransaction",
+    "TaskStatus",
+    "RewardStatus",
     "PointTransactionType", 
     "RecurringTaskRule", 
     "RecurringFrequency", 
