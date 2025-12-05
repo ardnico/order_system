@@ -1,23 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title or "Chore Board" }}</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body class="theme-{{ theme }} bg-cute">
 <header>
-    <div class="brand">Household Chore Board</div>
+    <div class="brand">{{ strings["brand"] }}</div>
     {% if user %}
     <nav>
-        <a href="/">Dashboard</a>
-        <a href="/tasks">Tasks</a>
-        <a href="/templates/tasks">Task Templates</a>
-        <a href="/rewards">Rewards</a>
-        <a href="/points">Point History</a>
+        <a href="/">{{ strings["nav.dashboard"] }}</a>
+        <a href="/tasks">{{ strings["nav.tasks"] }}</a>
+        <a href="/templates/tasks">{{ strings["nav.templates"] }}</a>
+        <a href="/rewards">{{ strings["nav.rewards"] }}</a>
+        <a href="/points">{{ strings["nav.points"] }}</a>
+        <a href="/settings">{{ strings["nav.settings"] }}</a>
         <form action="/logout" method="post" class="logout-form">
-            <button type="submit">Logout ({{ user.display_name }})</button>
+            <button type="submit">{{ strings["nav.logout"] }} ({{ user.display_name }})</button>
         </form>
     </nav>
     {% endif %}

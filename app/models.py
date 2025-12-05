@@ -4,13 +4,6 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel, Relationship
 
-
-class Priority(str, Enum):
-    high = "high"
-    medium = "medium"
-    low = "low"
-
-
 class TaskStatus(str, Enum):
     open = "open"  # 発注中
     assigned = "assigned"  # 受注済み
@@ -37,6 +30,8 @@ class Household(SQLModel, table=True):
     name: str
     join_code: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    language: str = Field(default="en")
+    theme: str = Field(default="sakura")
 
     users: list["User"] = Relationship(back_populates="household")
 
@@ -64,10 +59,11 @@ class Task(SQLModel, table=True):
     due_time: Optional[time] = None
     proposed_points: int
     actual_points: Optional[int] = None
-    priority: Priority = Field(default=Priority.medium)
+    priority: int = Field(default=3)
     status: TaskStatus = Field(default=TaskStatus.open)
     created_by_user_id: int = Field(foreign_key="user.id")
     assignee_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    task_template_id: Optional[int] = Field(default=None, foreign_key="tasktemplate.id")
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -81,6 +77,25 @@ class TaskTemplate(SQLModel, table=True):
     default_points: Optional[int] = None
     relative_due_days: Optional[int] = None
     memo: Optional[str] = None
+    instructions: Optional[str] = None
+    instruction_image_url: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class RecurringFrequency(str, Enum):
+    daily = "daily"
+    weekly = "weekly"
+    monthly = "monthly"
+
+
+class RecurringTaskRule(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    household_id: int = Field(foreign_key="household.id")
+    task_template_id: int = Field(foreign_key="tasktemplate.id")
+    assignee_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    frequency: RecurringFrequency = Field(default=RecurringFrequency.weekly)
+    next_run_date: date = Field(default_factory=date.today)
+    active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -122,13 +137,14 @@ class PointTransaction(SQLModel, table=True):
 __all__ = [
     "Household",
     "User",
-    "Task",
-    "TaskTemplate",
+    "Task", 
+    "TaskTemplate", 
     "RewardTemplate",
     "RewardUse",
     "PointTransaction",
-    "Priority",
     "TaskStatus",
     "RewardStatus",
-    "PointTransactionType",
+    "PointTransactionType", 
+    "RecurringTaskRule", 
+    "RecurringFrequency", 
 ]

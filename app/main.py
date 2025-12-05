@@ -3,10 +3,13 @@ import secrets
 from datetime import date, datetime, time, timedelta
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup, escape
 from sqlalchemy import func
 from sqlmodel import Session, select
 from starlette.middleware.sessions import SessionMiddleware
@@ -17,7 +20,6 @@ from .models import (
     Household,
     PointTransaction,
     PointTransactionType,
-    Priority,
     RewardStatus,
     RewardTemplate,
     RewardUse,
@@ -25,9 +27,17 @@ from .models import (
     TaskStatus,
     TaskTemplate,
     User,
+    RecurringTaskRule,
+    RecurringFrequency,
 )
 
-app = FastAPI(title="Household chore board")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="Household chore board", lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET", "dev-secret"),
@@ -36,13 +46,279 @@ app.add_middleware(
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 templates_dir = os.path.join(os.path.dirname(__file__), "templates")
+uploads_dir = os.path.join(static_dir, "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 templates = Jinja2Templates(directory=templates_dir)
 
+UI_STRINGS = {
+    "en": {
+        "brand": "Household Chore Board",
+        "nav.dashboard": "Dashboard",
+        "nav.tasks": "Tasks",
+        "nav.templates": "Task Templates",
+        "nav.rewards": "Rewards",
+        "nav.points": "Point History",
+        "nav.settings": "Settings",
+        "nav.logout": "Logout",
+        "dashboard.title": "Welcome",
+        "dashboard.balance": "My balance",
+        "dashboard.house": "Household balances",
+        "dashboard.noAssigned": "No assigned tasks",
+        "dashboard.open": "Open tasks",
+        "dashboard.noOpen": "No open tasks",
+        "dashboard.recent": "Recent transactions",
+        "dashboard.noHistory": "No history yet",
+        "tasks.heading": "Tasks",
+        "tasks.assigned": "Assigned to me",
+        "tasks.all": "All tasks",
+        "tasks.completed": "Completed",
+        "tasks.orderSheet": "Order sheet",
+        "tasks.new": "New Task",
+        "tasks.edit": "Edit Task",
+        "tasks.save": "Save Task",
+        "tasks.assignee": "Assignee",
+        "tasks.detail": "Detail",
+        "tasks.detailLink": "Detail",
+        "tasks.createFromTemplate": "Create from template",
+        "tasks.none": "(No tasks in this view)",
+        "tasks.noTemplates": "No templates yet.",
+        "tasks.category": "Category",
+        "tasks.due": "Due",
+        "tasks.priority": "Priority",
+        "tasks.points": "Points",
+        "tasks.creator": "Creator",
+        "tasks.description": "Description",
+        "tasks.notes": "Notes",
+        "tasks.claim": "Claim",
+        "tasks.start": "Start",
+        "tasks.submit": "Submit completion",
+        "tasks.approve": "Approve",
+        "tasks.cancel": "Cancel",
+        "tasks.active": "Active",
+        "tasks.pointsAwarded": "Points awarded",
+        "tasks.instructionsHint": "Use image::<url>[] to embed photos.",
+        "templates.heading": "Task Templates",
+        "templates.instructions": "Instructions",
+        "templates.new": "New template",
+        "templates.existing": "Existing templates",
+        "templates.relative": "Relative due days",
+        "templates.memo": "Memo",
+        "templates.save": "Save",
+        "templates.update": "Update",
+        "templates.delete": "Delete",
+        "templates.upload": "Upload instruction image",
+        "templates.uploaded": "Uploaded image",
+        "templates.embedGuide": "Embed with image::<url>[] inside instructions.",
+        "settings.heading": "Settings",
+        "settings.language": "Language",
+        "settings.recurring": "Recurring tasks",
+        "settings.language.ja": "Japanese",
+        "settings.language.en": "English",
+        "settings.recurring.add": "Add recurring rule",
+        "settings.recurring.next": "Next run date",
+        "settings.frequency.daily": "Daily",
+        "settings.frequency.weekly": "Weekly",
+        "settings.frequency.monthly": "Monthly",
+        "settings.recurring.none": "No recurring rules yet.",
+        "settings.theme": "Color theme",
+        "settings.theme.sakura": "Sakura pastel",
+        "settings.theme.mint": "Mint soda",
+        "settings.theme.creamsicle": "Creamsicle",
+        "settings.theme.night": "Twilight",
+        "settings.update": "Update",
+    },
+    "ja": {
+        "brand": "おうちタスクボード",
+        "nav.dashboard": "ダッシュボード",
+        "nav.tasks": "タスク",
+        "nav.templates": "タスクテンプレート",
+        "nav.rewards": "ごほうび",
+        "nav.points": "ポイント履歴",
+        "nav.settings": "設定",
+        "nav.logout": "ログアウト",
+        "dashboard.title": "ようこそ",
+        "dashboard.balance": "自分の残高",
+        "dashboard.house": "家族の残高一覧",
+        "dashboard.noAssigned": "担当タスクなし",
+        "dashboard.open": "未対応タスク",
+        "dashboard.noOpen": "未対応タスクなし",
+        "dashboard.recent": "最近の取引",
+        "dashboard.noHistory": "履歴はまだありません",
+        "tasks.heading": "タスク一覧",
+        "tasks.assigned": "担当タスク",
+        "tasks.all": "全て",
+        "tasks.completed": "完了済み",
+        "tasks.orderSheet": "発注書ビュー",
+        "tasks.new": "新規タスク",
+        "tasks.edit": "タスク編集",
+        "tasks.save": "保存",
+        "tasks.assignee": "担当",
+        "tasks.detail": "詳細",
+        "tasks.detailLink": "詳細",
+        "tasks.createFromTemplate": "テンプレートから作成",
+        "tasks.none": "(該当タスクなし)",
+        "tasks.noTemplates": "テンプレートがまだありません",
+        "tasks.category": "カテゴリ",
+        "tasks.due": "期限",
+        "tasks.priority": "優先度",
+        "tasks.points": "ポイント",
+        "tasks.creator": "作成者",
+        "tasks.description": "説明",
+        "tasks.notes": "メモ",
+        "tasks.claim": "受注する",
+        "tasks.start": "開始する",
+        "tasks.submit": "完了を提出",
+        "tasks.approve": "承認する",
+        "tasks.cancel": "キャンセル",
+        "tasks.active": "有効",
+        "tasks.pointsAwarded": "ポイント付与済み",
+        "tasks.instructionsHint": "image::<url>[] で写真を挿入できます",
+        "templates.heading": "タスクテンプレート",
+        "templates.instructions": "実施手順",
+        "templates.new": "新規テンプレート",
+        "templates.existing": "テンプレート一覧",
+        "templates.relative": "相対期限(日)",
+        "templates.memo": "メモ",
+        "templates.save": "保存",
+        "templates.update": "更新",
+        "templates.delete": "削除",
+        "templates.upload": "手順用の画像をアップロード",
+        "templates.uploaded": "アップロード済み画像",
+        "templates.embedGuide": "手順に image::<url>[] を差し込んで表示できます",
+        "settings.heading": "設定",
+        "settings.language": "言語",
+        "settings.recurring": "定期タスク設定",
+        "settings.language.ja": "日本語",
+        "settings.language.en": "英語",
+        "settings.recurring.add": "定期ルール追加",
+        "settings.recurring.next": "次回作成日",
+        "settings.frequency.daily": "毎日",
+        "settings.frequency.weekly": "毎週",
+        "settings.frequency.monthly": "毎月",
+        "settings.recurring.none": "定期ルールはまだありません",
+        "settings.theme": "カラーテーマ",
+        "settings.theme.sakura": "さくらパステル",
+        "settings.theme.mint": "ミントソーダ",
+        "settings.theme.creamsicle": "クリームソーダ",
+        "settings.theme.night": "ゆめかわツイライト",
+        "settings.update": "更新",
+    },
+}
 
-@app.on_event("startup")
-def on_startup():
-    init_db()
+STATUS_LABELS = {
+    "open": {"en": "Open", "ja": "発注中"},
+    "assigned": {"en": "Assigned", "ja": "担当決定"},
+    "in_progress": {"en": "In progress", "ja": "作業中"},
+    "completed": {"en": "Completed", "ja": "完了報告"},
+    "approved": {"en": "Approved", "ja": "承認済み"},
+    "cancelled": {"en": "Cancelled", "ja": "キャンセル"},
+}
+
+THEME_CHOICES = ["sakura", "mint", "creamsicle", "night"]
+ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+
+
+def get_strings(language: str) -> dict:
+    base = UI_STRINGS.get("en", {})
+    localized = UI_STRINGS.get(language, {})
+    merged = base.copy()
+    merged.update(localized)
+    return merged
+
+
+def get_language(request: Request, session: Session, user: Optional[User] = None) -> str:
+    lang = request.session.get("language")
+    if not lang and user:
+        household = session.get(Household, user.household_id)
+        if household:
+            lang = household.language
+    lang = lang or "en"
+    request.session["language"] = lang
+    return lang
+
+
+def get_theme(request: Request, session: Session, user: Optional[User] = None) -> str:
+    theme = request.session.get("theme")
+    if not theme and user:
+        household = session.get(Household, user.household_id)
+        if household:
+            theme = household.theme
+    theme = theme or THEME_CHOICES[0]
+    request.session["theme"] = theme
+    return theme
+
+
+def translate_status(status: TaskStatus, language: str) -> str:
+    return STATUS_LABELS.get(status.value, {}).get(language, status.value)
+
+
+def render_instructions(text: Optional[str]) -> Markup:
+    if not text:
+        return Markup("")
+    lines = text.splitlines()
+    html_parts: list[str] = []
+    in_list = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("* "):
+            if not in_list:
+                html_parts.append("<ul>")
+                in_list = True
+            html_parts.append(f"<li>{escape(stripped[2:])}</li>")
+            continue
+        if in_list:
+            html_parts.append("</ul>")
+            in_list = False
+        if stripped.startswith("image::") and stripped.endswith("[]"):
+            url = stripped[len("image::") : -2]
+            html_parts.append(
+                f"<div class='instruction-image-wrap'><img src='{escape(url)}' alt='instruction image' class='instruction-image'/></div>"
+            )
+        elif stripped.startswith("== "):
+            html_parts.append(f"<h3>{escape(stripped[3:])}</h3>")
+        elif stripped.startswith("= "):
+            html_parts.append(f"<h2>{escape(stripped[2:])}</h2>")
+        elif stripped:
+            html_parts.append(f"<p>{escape(stripped)}</p>")
+    if in_list:
+        html_parts.append("</ul>")
+    return Markup("\n".join(html_parts))
+
+
+async def store_instruction_upload(file: Optional[UploadFile]) -> Optional[str]:
+    if not file or not file.filename:
+        return None
+    ext = os.path.splitext(file.filename)[1].lower() or ".png"
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        ext = ".png"
+    filename = f"instruction-{secrets.token_hex(8)}{ext}"
+    path = os.path.join(uploads_dir, filename)
+    content = await file.read()
+    with open(path, "wb") as f:
+        f.write(content)
+    return f"/static/uploads/{filename}"
+
+
+def build_context(
+    request: Request, session: Session, user: Optional[User] = None, extra: Optional[dict] = None
+) -> dict:
+    language = get_language(request, session, user)
+    theme = get_theme(request, session, user)
+    context = {
+        "request": request,
+        "user": user,
+        "language": language,
+        "theme": theme,
+        "strings": get_strings(language),
+        "theme_choices": THEME_CHOICES,
+        "flash_messages": pop_flash(request),
+        "translate_status": translate_status,
+        "render_instructions": render_instructions,
+    }
+    if extra:
+        context.update(extra)
+    return context
 
 
 def flash(request: Request, message: str, category: str = "info"):
@@ -105,12 +381,121 @@ def get_reward_use(session: Session, household_id: int, reward_use_id: int) -> R
     return reward_use
 
 
+def seed_household_templates(session: Session, household_id: int):
+    existing = session.exec(
+        select(func.count(TaskTemplate.id)).where(TaskTemplate.household_id == household_id)
+    ).one()
+    if existing and existing[0]:
+        return
+    presets = [
+        {
+            "title": "毎日のリビング片付け / Living room tidy",
+            "default_category": "cleaning",
+            "default_points": 3,
+            "relative_due_days": 0,
+            "memo": "おもちゃ・雑誌を片付け、テーブルを拭く",
+            "instructions": "* クッションを整える\n* テーブルを拭く\n* 床に落ちているものを回収",
+        },
+        {
+            "title": "夕食後の皿洗い / Dishes after dinner",
+            "default_category": "cooking",
+            "default_points": 4,
+            "relative_due_days": 0,
+            "memo": "食洗機または手洗いで片付け",
+            "instructions": "* 食器をまとめて予洗い\n* 食洗機に入れる or 手洗いする\n* シンク周りを拭く",
+        },
+        {
+            "title": "ゴミ出し準備 / Trash day prep",
+            "default_category": "cleaning",
+            "default_points": 2,
+            "relative_due_days": 0,
+            "memo": "燃えるゴミをまとめて玄関へ",
+            "instructions": "* 各部屋のゴミ箱を回収\n* 袋の口を固く結ぶ\n* 玄関に置いておく",
+        },
+        {
+            "title": "洗濯＆干し / Laundry wash & hang",
+            "default_category": "laundry",
+            "default_points": 5,
+            "relative_due_days": 0,
+            "memo": "洗濯から干しまで担当",
+            "instructions": "* 洗濯機を回す\n* 仕分けして干す\n* 物干しを整える",
+        },
+        {
+            "title": "お風呂掃除 / Bathroom scrub",
+            "default_category": "cleaning",
+            "default_points": 4,
+            "relative_due_days": 1,
+            "memo": "浴槽と床の掃除",
+            "instructions": "* 換気を回す\n* 浴槽ブラシでこする\n* 床と排水口を洗う",
+        },
+        {
+            "title": "買い出しリストチェック / Grocery restock",
+            "default_category": "shopping",
+            "default_points": 3,
+            "relative_due_days": 2,
+            "memo": "冷蔵庫・パントリーを確認",
+            "instructions": "* 残量を確認\n* なくなりそうなものをメモ\n* リストを家族と共有",
+        },
+    ]
+    for preset in presets:
+        session.add(TaskTemplate(household_id=household_id, **preset))
+    session.commit()
+
+
+def run_recurring_rules(session: Session, household_id: int, created_by_user_id: int):
+    today = date.today()
+    rules = session.exec(
+        select(RecurringTaskRule).where(
+            RecurringTaskRule.household_id == household_id,
+            RecurringTaskRule.active == True,  # noqa: E712
+            RecurringTaskRule.next_run_date <= today,
+        )
+    ).all()
+    created_tasks: list[Task] = []
+    for rule in rules:
+        template = session.get(TaskTemplate, rule.task_template_id)
+        if not template:
+            continue
+        due_date = today
+        if template.relative_due_days is not None:
+            due_date = today + timedelta(days=template.relative_due_days)
+        order_num = next_order_number(session, household_id)
+        task = Task(
+            household_id=household_id,
+            order_number=order_num,
+            title=template.title,
+            description=template.memo,
+            category=template.default_category or "",
+            due_date=due_date,
+            proposed_points=template.default_points or 0,
+            priority=3,
+            status=TaskStatus.open,
+            created_by_user_id=created_by_user_id,
+            assignee_user_id=rule.assignee_user_id,
+            task_template_id=template.id,
+            notes=template.memo,
+        )
+        session.add(task)
+        created_tasks.append(task)
+        if rule.frequency == RecurringFrequency.daily:
+            rule.next_run_date = today + timedelta(days=1)
+        elif rule.frequency == RecurringFrequency.weekly:
+            rule.next_run_date = today + timedelta(days=7)
+        else:
+            rule.next_run_date = today + timedelta(days=30)
+        session.add(rule)
+    if created_tasks:
+        session.commit()
+    return created_tasks
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard(
     request: Request,
     user: User = Depends(require_user),
     session: Session = Depends(get_session),
-): 
+):
+    run_recurring_rules(session, user.household_id, user.id)
     user_balance = calculate_user_balance(session, user.id)
     household_balances = calculate_household_balance(session, user.household_id)
     household_users = get_household_users(session, user.household_id)
@@ -134,18 +519,21 @@ def dashboard(
         .limit(10)
     ).all()
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
-        {
-            "request": request,
-            "user": user,
-            "user_balance": user_balance,
-            "household_balances": household_balances,
-            "household_users": user_lookup,
-            "assigned_tasks": assigned_tasks,
-            "open_tasks": open_tasks,
-            "transactions": recent_transactions,
-            "flash_messages": pop_flash(request),
-        },
+        build_context(
+            request,
+            session,
+            user,
+            {
+                "user_balance": user_balance,
+                "household_balances": household_balances,
+                "household_users": user_lookup,
+                "assigned_tasks": assigned_tasks,
+                "open_tasks": open_tasks,
+                "transactions": recent_transactions,
+            },
+        ),
     )
 
 
@@ -153,8 +541,14 @@ def dashboard(
 def register_form(request: Request, session: Session = Depends(get_session)):
     households = session.exec(select(Household)).all()
     return templates.TemplateResponse(
+        request,
         "register.html",
-        {"request": request, "households": households, "flash_messages": pop_flash(request)},
+        build_context(
+            request,
+            session,
+            None,
+            {"households": households},
+        ),
     )
 
 
@@ -179,6 +573,7 @@ async def register(
         session.add(household)
         session.commit()
         session.refresh(household)
+        seed_household_templates(session, household.id)
     else:
         if not household_id:
             flash(request, "Select a household", "error")
@@ -216,8 +611,14 @@ async def register(
 def login_form(request: Request, session: Session = Depends(get_session)):
     households = session.exec(select(Household)).all()
     return templates.TemplateResponse(
+        request,
         "login.html",
-        {"request": request, "households": households, "flash_messages": pop_flash(request)},
+        build_context(
+            request,
+            session,
+            None,
+            {"households": households},
+        ),
     )
 
 
@@ -252,31 +653,144 @@ def logout(request: Request):
     return response
 
 
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    templates_list = session.exec(
+        select(TaskTemplate).where(TaskTemplate.household_id == user.household_id)
+    ).all()
+    recurring_rules = session.exec(
+        select(RecurringTaskRule).where(RecurringTaskRule.household_id == user.household_id)
+    ).all()
+    household_users = get_household_users(session, user.household_id)
+    assignee_map = {u.id: u for u in household_users}
+    household = session.get(Household, user.household_id)
+    return templates.TemplateResponse(
+        request,
+        "settings.html",
+        build_context(
+            request,
+            session,
+            user,
+            {
+                "templates": templates_list,
+                "recurring_rules": recurring_rules,
+                "assignees": household_users,
+                "assignee_map": assignee_map,
+                "household": household,
+                "today": date.today(),
+            },
+        ),
+    )
+
+
+@app.post("/settings/language")
+async def update_language(
+    request: Request,
+    language: str = Form(...),
+    theme: str = Form("sakura"),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    household = session.get(Household, user.household_id)
+    if household:
+        household.language = language
+        household.theme = theme if theme in THEME_CHOICES else household.theme
+        session.add(household)
+        session.commit()
+    request.session["language"] = language
+    request.session["theme"] = theme if theme in THEME_CHOICES else request.session.get("theme", THEME_CHOICES[0])
+    flash(request, "Language and theme updated")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/recurring")
+async def add_recurring_rule(
+    request: Request,
+    task_template_id: int = Form(...),
+    frequency: str = Form(...),
+    next_run_date: Optional[date] = Form(None),
+    assignee_user_id: Optional[int] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    rule = RecurringTaskRule(
+        household_id=user.household_id,
+        task_template_id=task_template_id,
+        frequency=RecurringFrequency(frequency),
+        next_run_date=next_run_date or date.today(),
+        assignee_user_id=assignee_user_id,
+    )
+    session.add(rule)
+    session.commit()
+    flash(request, "Recurring rule added")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/recurring/{rule_id}/toggle")
+async def toggle_recurring_rule(
+    request: Request,
+    rule_id: int,
+    active: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    rule = session.exec(
+        select(RecurringTaskRule).where(
+            RecurringTaskRule.id == rule_id, RecurringTaskRule.household_id == user.household_id
+        )
+    ).first()
+    if not rule:
+        flash(request, "Rule not found", "error")
+        return RedirectResponse("/settings", status_code=303)
+    rule.active = active == "on"
+    session.add(rule)
+    session.commit()
+    flash(request, "Rule updated")
+    return RedirectResponse("/settings", status_code=303)
+
+
 @app.get("/tasks", response_class=HTMLResponse)
 def list_tasks(
     request: Request,
     status: Optional[str] = None,
+    scope: str = "assigned",
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    run_recurring_rules(session, user.household_id, user.id)
     query = select(Task).where(Task.household_id == user.household_id)
     if status:
         query = query.where(Task.status == TaskStatus(status))
+    elif scope == "completed":
+        query = query.where(Task.status.in_([TaskStatus.completed, TaskStatus.approved]))
+    elif scope == "all":
+        query = query
+    else:
+        query = query.where(Task.assignee_user_id == user.id)
     tasks = session.exec(query.order_by(Task.due_date)).all()
     user_map = {u.id: u for u in get_household_users(session, user.household_id)}
     templates_list = session.exec(
         select(TaskTemplate).where(TaskTemplate.household_id == user.household_id)
     ).all()
     return templates.TemplateResponse(
+        request,
         "tasks.html",
-        {
-            "request": request,
-            "tasks": tasks,
-            "user": user,
-            "templates": templates_list,
-            "user_map": user_map,
-            "flash_messages": pop_flash(request),
-        },
+        build_context(
+            request,
+            session,
+            user,
+            {
+                "tasks": tasks,
+                "scope": scope,
+                "status_filter": status,
+                "templates": templates_list,
+                "user_map": user_map,
+            },
+        ),
     )
 
 
@@ -299,14 +813,18 @@ def new_task_form(
         if template_data and template_data.relative_due_days is not None:
             default_due_date = date.today() + timedelta(days=template_data.relative_due_days)
     return templates.TemplateResponse(
+        request,
         "task_form.html",
-        {
-            "request": request,
-            "user": user,
-            "template": template_data,
-            "default_due_date": default_due_date,
-            "flash_messages": pop_flash(request),
-        },
+        build_context(
+            request,
+            session,
+            user,
+            {
+                "template": template_data,
+                "default_due_date": default_due_date,
+                "assignees": get_household_users(session, user.household_id),
+            },
+        ),
     )
 
 
@@ -319,8 +837,10 @@ async def create_task(
     due_date: date = Form(...),
     due_time: Optional[str] = Form(None),
     proposed_points: int = Form(...),
-    priority: str = Form("medium"),
+    priority: int = Form(3),
     notes: Optional[str] = Form(None),
+    assignee_user_id: Optional[int] = Form(None),
+    task_template_id: Optional[int] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
@@ -341,14 +861,80 @@ async def create_task(
         due_date=due_date,
         due_time=parsed_time,
         proposed_points=proposed_points,
-        priority=Priority(priority),
+        priority=priority,
         status=TaskStatus.open,
         created_by_user_id=user.id,
+        assignee_user_id=assignee_user_id or user.id,
+        task_template_id=task_template_id,
         notes=notes,
     )
     session.add(task)
     session.commit()
     flash(request, "Task created")
+    return RedirectResponse(f"/tasks/{task.id}", status_code=303)
+
+
+@app.get("/tasks/{task_id}/edit", response_class=HTMLResponse)
+def edit_task_form(
+    request: Request,
+    task_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    task = get_task(session, user.household_id, task_id)
+    return templates.TemplateResponse(
+        request,
+        "task_form.html",
+        build_context(
+            request,
+            session,
+            user,
+            {
+                "task": task,
+                "default_due_date": task.due_date,
+                "assignees": get_household_users(session, user.household_id),
+            },
+        ),
+    )
+
+
+@app.post("/tasks/{task_id}/edit")
+async def edit_task(
+    request: Request,
+    task_id: int,
+    title: str = Form(...),
+    description: Optional[str] = Form(None),
+    category: str = Form(...),
+    due_date: date = Form(...),
+    due_time: Optional[str] = Form(None),
+    proposed_points: int = Form(...),
+    priority: int = Form(3),
+    notes: Optional[str] = Form(None),
+    assignee_user_id: Optional[int] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    task = get_task(session, user.household_id, task_id)
+    parsed_time: Optional[time] = None
+    if due_time:
+        try:
+            parsed_time = datetime.strptime(due_time, "%H:%M").time()
+        except ValueError:
+            flash(request, "Invalid time format", "error")
+            return RedirectResponse(f"/tasks/{task_id}/edit", status_code=303)
+    task.title = title
+    task.description = description
+    task.category = category
+    task.due_date = due_date
+    task.due_time = parsed_time
+    task.proposed_points = proposed_points
+    task.priority = priority
+    task.notes = notes
+    task.assignee_user_id = assignee_user_id or task.assignee_user_id or user.id
+    task.updated_at = datetime.utcnow()
+    session.add(task)
+    session.commit()
+    flash(request, "Task updated")
     return RedirectResponse(f"/tasks/{task.id}", status_code=303)
 
 
@@ -366,16 +952,51 @@ def task_detail(
         select(PointTransaction).where(PointTransaction.related_task_id == task.id)
     ).first()
     return templates.TemplateResponse(
+        request,
         "task_detail.html",
-        {
-            "request": request,
-            "task": task,
-            "user": user,
-            "assignee": assignee,
-            "creator": creator,
-            "related_tx": related_tx,
-            "flash_messages": pop_flash(request),
-        },
+        build_context(
+            request,
+            session,
+            user,
+            {
+                "task": task,
+                "assignee": assignee,
+                "creator": creator,
+                "related_tx": related_tx,
+                "template": session.get(TaskTemplate, task.task_template_id)
+                if task.task_template_id
+                else None,
+            },
+        ),
+    )
+
+
+@app.get("/tasks/{task_id}/order", response_class=HTMLResponse)
+def task_order_sheet(
+    request: Request,
+    task_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    task = get_task(session, user.household_id, task_id)
+    assignee = session.get(User, task.assignee_user_id) if task.assignee_user_id else None
+    creator = session.get(User, task.created_by_user_id)
+    return templates.TemplateResponse(
+        request,
+        "task_order.html",
+        build_context(
+            request,
+            session,
+            user,
+            {
+                "task": task,
+                "assignee": assignee,
+                "creator": creator,
+                "template": session.get(TaskTemplate, task.task_template_id)
+                if task.task_template_id
+                else None,
+            },
+        ),
     )
 
 
@@ -441,13 +1062,14 @@ def task_templates(
         select(TaskTemplate).where(TaskTemplate.household_id == user.household_id)
     ).all()
     return templates.TemplateResponse(
+        request,
         "task_templates.html",
-        {
-            "request": request,
-            "templates": templates_list,
-            "user": user,
-            "flash_messages": pop_flash(request),
-        },
+        build_context(
+            request,
+            session,
+            user,
+            {"templates": templates_list},
+        ),
     )
 
 
@@ -459,9 +1081,17 @@ async def create_task_template(
     default_points: Optional[int] = Form(None),
     relative_due_days: Optional[int] = Form(None),
     memo: Optional[str] = Form(None),
+    instructions: Optional[str] = Form(None),
+    instruction_image_url: Optional[str] = Form(None),
+    instruction_image_file: Optional[UploadFile] = File(None),
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    uploaded_url = await store_instruction_upload(instruction_image_file)
+    final_instruction_url = instruction_image_url or uploaded_url
+    final_instructions = instructions or ""
+    if uploaded_url and uploaded_url not in final_instructions:
+        final_instructions = (final_instructions + "\n" if final_instructions else "") + f"image::{uploaded_url}[]"
     template = TaskTemplate(
         household_id=user.household_id,
         title=title,
@@ -469,10 +1099,53 @@ async def create_task_template(
         default_points=default_points,
         relative_due_days=relative_due_days,
         memo=memo,
+        instructions=final_instructions or None,
+        instruction_image_url=final_instruction_url,
     )
     session.add(template)
     session.commit()
     flash(request, "Template created")
+    return RedirectResponse("/templates/tasks", status_code=303)
+
+
+@app.post("/templates/tasks/{template_id}/edit")
+async def edit_task_template(
+    request: Request,
+    template_id: int,
+    title: str = Form(...),
+    default_category: Optional[str] = Form(None),
+    default_points: Optional[int] = Form(None),
+    relative_due_days: Optional[int] = Form(None),
+    memo: Optional[str] = Form(None),
+    instructions: Optional[str] = Form(None),
+    instruction_image_url: Optional[str] = Form(None),
+    instruction_image_file: Optional[UploadFile] = File(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    template = session.exec(
+        select(TaskTemplate).where(
+            TaskTemplate.id == template_id, TaskTemplate.household_id == user.household_id
+        )
+    ).first()
+    if not template:
+        flash(request, "Template not found", "error")
+        return RedirectResponse("/templates/tasks", status_code=303)
+    uploaded_url = await store_instruction_upload(instruction_image_file)
+    template.title = title
+    template.default_category = default_category
+    template.default_points = default_points
+    template.relative_due_days = relative_due_days
+    template.memo = memo
+    candidate_instructions = instructions or ""
+    final_image_url = instruction_image_url or uploaded_url or template.instruction_image_url
+    if uploaded_url and uploaded_url not in candidate_instructions:
+        candidate_instructions = (candidate_instructions + "\n" if candidate_instructions else "") + f"image::{uploaded_url}[]"
+    template.instructions = candidate_instructions or None
+    template.instruction_image_url = final_image_url
+    session.add(template)
+    session.commit()
+    flash(request, "Template updated")
     return RedirectResponse("/templates/tasks", status_code=303)
 
 
@@ -511,15 +1184,18 @@ def reward_templates(
     ).all()
     user_map = {u.id: u for u in get_household_users(session, user.household_id)}
     return templates.TemplateResponse(
+        request,
         "rewards.html",
-        {
-            "request": request,
-            "templates": templates_list,
-            "reward_uses": reward_uses,
-            "user": user,
-            "user_map": user_map,
-            "flash_messages": pop_flash(request),
-        },
+        build_context(
+            request,
+            session,
+            user,
+            {
+                "templates": templates_list,
+                "reward_uses": reward_uses,
+                "user_map": user_map,
+            },
+        ),
     )
 
 
@@ -644,15 +1320,18 @@ def point_history(
     users = session.exec(select(User).where(User.household_id == user.household_id)).all()
     user_map = {u.id: u for u in users}
     return templates.TemplateResponse(
+        request,
         "points.html",
-        {
-            "request": request,
-            "transactions": transactions,
-            "balances": balances,
-            "users": user_map,
-            "user": user,
-            "flash_messages": pop_flash(request),
-        },
+        build_context(
+            request,
+            session,
+            user,
+            {
+                "transactions": transactions,
+                "balances": balances,
+                "users": user_map,
+            },
+        ),
     )
 
 

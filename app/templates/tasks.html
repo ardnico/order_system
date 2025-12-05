@@ -1,39 +1,49 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Tasks</h1>
-<div class="actions">
-    <a class="button" href="/tasks/new">Create Task</a>
+<h1>{{ strings["tasks.heading"] }}</h1>
+<div class="filters">
+    <a class="pill {% if scope == 'assigned' %}active{% endif %}" href="/tasks?scope=assigned">{{ strings["tasks.assigned"] }}</a>
+    <a class="pill {% if scope == 'all' %}active{% endif %}" href="/tasks?scope=all">{{ strings["tasks.all"] }}</a>
+    <a class="pill {% if scope == 'completed' %}active{% endif %}" href="/tasks?scope=completed">{{ strings["tasks.completed"] }}</a>
 </div>
-<table>
-    <thead>
-        <tr><th>#</th><th>Title</th><th>Category</th><th>Status</th><th>Due</th><th>Points</th><th>Assignee</th></tr>
-    </thead>
-    <tbody>
-        {% for task in tasks %}
-        <tr>
-            <td>{{ task.order_number }}</td>
-            <td><a href="/tasks/{{ task.id }}">{{ task.title }}</a></td>
-            <td>{{ task.category }}</td>
-            <td>{{ task.status }}</td>
-            <td>{{ task.due_date }}</td>
-            <td>{{ task.proposed_points }}</td>
-            <td>{% if task.assignee_user_id %}{{ user_map[task.assignee_user_id].display_name if user_map.get(task.assignee_user_id) else task.assignee_user_id }}{% else %}-{% endif %}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-<h2>Use template</h2>
+<div class="actions">
+    <a class="button" href="/tasks/new">{{ strings["tasks.new"] }}</a>
+</div>
+<div class="card-list">
+    {% for task in tasks %}
+    <div class="card task-card">
+        <div class="task-card-header">
+            <div class="task-title"><a href="/tasks/{{ task.id }}">#{{ task.order_number }} {{ task.title }}</a></div>
+            <div class="status-pill status-{{ task.status }}">{{ translate_status(task.status, language) }}</div>
+        </div>
+        <div class="task-meta">
+            <span>{{ task.category }}</span>
+            <span>{{ task.due_date }}</span>
+            <span class="priority">⬆️ {{ task.priority }}</span>
+            <span class="points">⭐ {{ task.proposed_points }}</span>
+            <span>{{ strings["tasks.assignee"] }}: {% if task.assignee_user_id %}{{ user_map[task.assignee_user_id].display_name if user_map.get(task.assignee_user_id) else task.assignee_user_id }}{% else %}-{% endif %}</span>
+        </div>
+        <div class="task-actions">
+            <a class="ghost" href="/tasks/{{ task.id }}">{{ strings['tasks.detailLink'] }}</a>
+            <a class="ghost" href="/tasks/{{ task.id }}/order">{{ strings["tasks.orderSheet"] }}</a>
+        </div>
+    </div>
+    {% else %}
+    <p class="muted">{{ strings['tasks.none'] }}</p>
+    {% endfor %}
+</div>
+
+<h2>{{ strings["templates.heading"] }}</h2>
 <div class="cards">
     {% for t in templates %}
     <div class="card">
         <h4>{{ t.title }}</h4>
-        <p>Default category: {{ t.default_category or '-' }}</p>
-        <p>Points: {{ t.default_points or '-' }}</p>
-        <p>Relative due: {% if t.relative_due_days is not none %}+{{ t.relative_due_days }} days{% else %}-{% endif %}</p>
-        <a class="button" href="/tasks/new?template_id={{ t.id }}">Create from template</a>
+        <p>{{ t.default_category or '-' }} / ⭐ {{ t.default_points or '-' }}</p>
+        <p>{% if t.relative_due_days is not none %}+{{ t.relative_due_days }} days{% else %}-{% endif %}</p>
+        <a class="button" href="/tasks/new?template_id={{ t.id }}">{{ strings['tasks.createFromTemplate'] }}</a>
     </div>
     {% else %}
-    <p>No templates yet.</p>
+    <p class="muted">{{ strings['tasks.noTemplates'] }}</p>
     {% endfor %}
 </div>
 {% endblock %}

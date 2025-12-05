@@ -1,13 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Dashboard</h1>
+<div class="page-header">
+    <div>
+        <p class="eyebrow">{{ strings['dashboard.title'] }}</p>
+        <h1>{{ user.display_name }}</h1>
+    </div>
+</div>
 <section class="grid">
     <div class="card">
-        <h2>Your balance</h2>
+        <h2>{{ strings['dashboard.balance'] }} / 残高</h2>
         <p class="big-number">{{ user_balance }} pts</p>
     </div>
     <div class="card">
-        <h2>Household balances</h2>
+        <h2>{{ strings['dashboard.house'] }}</h2>
         <ul>
             {% for uid, balance in household_balances.items() %}
             <li>{{ household_users[uid].display_name if household_users.get(uid) else uid }}: {{ balance }} pts</li>
@@ -17,31 +22,31 @@
 </section>
 <section class="grid">
     <div class="card">
-        <h3>Assigned to you</h3>
+        <h3>{{ strings['tasks.assigned'] }}</h3>
         {% if assigned_tasks %}
         <ul>
             {% for task in assigned_tasks %}
-            <li><a href="/tasks/{{ task.id }}">#{{ task.order_number }} {{ task.title }}</a> - {{ task.status }}</li>
+            <li><a href="/tasks/{{ task.id }}">#{{ task.order_number }} {{ task.title }}</a> - {{ translate_status(task.status, language) }}</li>
             {% endfor %}
         </ul>
         {% else %}
-        <p>No assigned tasks</p>
+        <p class="muted">{{ strings['dashboard.noAssigned'] }}</p>
         {% endif %}
     </div>
     <div class="card">
-        <h3>Open tasks</h3>
+        <h3>{{ strings['dashboard.open'] }}</h3>
         {% if open_tasks %}
         <ul>
             {% for task in open_tasks %}
-            <li><a href="/tasks/{{ task.id }}">#{{ task.order_number }} {{ task.title }}</a> - due {{ task.due_date }}</li>
+            <li><a href="/tasks/{{ task.id }}">#{{ task.order_number }} {{ task.title }}</a> - {{ strings['tasks.due'] }} {{ task.due_date }}</li>
             {% endfor %}
         </ul>
         {% else %}
-        <p>No open tasks</p>
+        <p class="muted">{{ strings['dashboard.noOpen'] }}</p>
         {% endif %}
     </div>
     <div class="card">
-        <h3>Recent transactions</h3>
+        <h3>{{ strings['dashboard.recent'] }}</h3>
         {% if transactions %}
         <ul>
             {% for tx in transactions %}
@@ -49,7 +54,7 @@
             {% endfor %}
         </ul>
         {% else %}
-        <p>No history yet</p>
+        <p class="muted">{{ strings['dashboard.noHistory'] }}</p>
         {% endif %}
     </div>
 </section>
