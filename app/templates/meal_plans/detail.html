@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ strings["mealPlans.detail"] }}: {{ plan.name }}</h1>
+<p class="muted">{{ plan.start_date }} - {{ plan.end_date }}</p>
+<div class="actions">
+    <a class="ghost" href="/meal-plans/{{ plan.id }}/ingredients">{{ strings["mealPlans.ingredients"] }}</a>
+    <a class="ghost" href="/meal-plans">{{ strings["mealPlans.heading"] }}</a>
+</div>
+<div class="card">
+    <form method="post" action="/meal-plans/{{ plan.id }}">
+        <table>
+            <tr>
+                <th>Date</th>
+                <th>{{ strings["mealPlans.lunch"] }}</th>
+                <th>{{ strings["mealPlans.dinner"] }}</th>
+            </tr>
+            {% for day in days %}
+            <tr>
+                <td>{{ day.day_date }}<input type="hidden" name="day_dates" value="{{ day.day_date }}"></td>
+                <td>
+                    <select name="lunch_menu_ids">
+                        <option value="">-</option>
+                        {% for menu in menus %}
+                        <option value="{{ menu.id }}" {% if day.lunch_menu_id == menu.id %}selected{% endif %}>{{ menu.name }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <select name="dinner_menu_ids">
+                        <option value="">-</option>
+                        {% for menu in menus %}
+                        <option value="{{ menu.id }}" {% if day.dinner_menu_id == menu.id %}selected{% endif %}>{{ menu.name }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        <button type="submit">{{ strings["mealPlans.save"] }}</button>
+    </form>
+</div>
+{% endblock %}

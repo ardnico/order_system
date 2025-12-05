@@ -134,6 +134,52 @@ class PointTransaction(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class Ingredient(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    household_id: int = Field(foreign_key="household.id")
+    name: str
+    unit: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Menu(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    household_id: int = Field(foreign_key="household.id")
+    name: str
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    ingredients: list["MenuIngredient"] = Relationship(back_populates="menu")
+
+
+class MenuIngredient(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    menu_id: int = Field(foreign_key="menu.id")
+    ingredient_id: int = Field(foreign_key="ingredient.id")
+    quantity: float = Field(default=0)
+
+    menu: Menu = Relationship(back_populates="ingredients")
+    ingredient: Ingredient = Relationship()
+
+
+class MealPlan(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    household_id: int = Field(foreign_key="household.id")
+    name: str
+    start_date: date
+    end_date: date
+    created_by_user_id: int = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MealPlanDay(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    meal_plan_id: int = Field(foreign_key="mealplan.id")
+    day_date: date
+    lunch_menu_id: Optional[int] = Field(default=None, foreign_key="menu.id")
+    dinner_menu_id: Optional[int] = Field(default=None, foreign_key="menu.id")
+
+
 __all__ = [
     "Household",
     "User",
@@ -144,7 +190,12 @@ __all__ = [
     "PointTransaction",
     "TaskStatus",
     "RewardStatus",
-    "PointTransactionType", 
-    "RecurringTaskRule", 
-    "RecurringFrequency", 
+    "PointTransactionType",
+    "RecurringTaskRule",
+    "RecurringFrequency",
+    "Ingredient",
+    "Menu",
+    "MenuIngredient",
+    "MealPlan",
+    "MealPlanDay",
 ]
