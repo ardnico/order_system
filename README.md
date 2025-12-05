@@ -28,6 +28,22 @@ Environment variables:
 - `DATABASE_URL` (optional): defaults to `sqlite:///order_system.db` in the repository root.
 - `SESSION_SECRET` (optional): secret key for session cookies.
 
+## Running with Docker and nginx
+1. Build and start the stack (app + nginx proxy) on port 8080:
+   ```bash
+   docker compose up --build
+   ```
+2. Visit [http://localhost:8080/register](http://localhost:8080/register) through nginx. Static assets are served from the `app/static` directory and the FastAPI app runs behind the proxy on port 8000.
+3. Data persists in the named volume `order_data` mounted at `/data/order_system.db`. To reset the database, stop the stack and remove the volume:
+   ```bash
+   docker compose down
+   docker volume rm order_system_order_data
+   ```
+4. Provide secrets via environment variables if desired, for example:
+   ```bash
+   DATABASE_URL=sqlite:////absolute/path/order_system.db SESSION_SECRET=change-me docker compose up --build
+   ```
+
 ## Basic workflow
 1. Register or log in to your household.
 2. Create task templates for frequent chores (optional).
