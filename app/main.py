@@ -422,7 +422,9 @@ def next_order_number(session: Session, household_id: int) -> int:
     return int(current_max or 0) + 1
 
 
-def get_or_create_ingredient(session: Session, household_id: int, name: str, unit: str | None):
+def get_or_create_ingredient(
+    session: Session, household_id: int, name: str, unit: Optional[str]
+):
     ingredient = session.exec(
         select(Ingredient).where(
             Ingredient.household_id == household_id, Ingredient.name == name, Ingredient.unit == unit
