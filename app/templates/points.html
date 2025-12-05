@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Point History</h1>
+<h1>{{ strings['points.heading'] }}</h1>
 <div class="card">
-    <h3>Balances</h3>
+    <h3>{{ strings['points.balances'] }}</h3>
     <ul>
         {% for uid, balance in balances.items() %}
         <li>{{ users[uid].display_name if users.get(uid) else uid }}: {{ balance }} pts</li>
@@ -10,7 +10,7 @@
     </ul>
 </div>
 <table>
-    <thead><tr><th>Date</th><th>User</th><th>Amount</th><th>Type</th><th>Description</th></tr></thead>
+    <thead><tr><th>{{ strings['points.date'] }}</th><th>{{ strings['points.user'] }}</th><th>{{ strings['points.amount'] }}</th><th>{{ strings['points.type'] }}</th><th>{{ strings['points.description'] }}</th></tr></thead>
     <tbody>
         {% for tx in transactions %}
         <tr>

@@ -8,7 +8,8 @@
   --muted: #6b7280;
   --border: #f3e8ff;
   --shadow: 0 10px 30px rgba(167, 139, 250, 0.15);
-  font-family: 'Inter', 'Noto Sans JP', system-ui, -apple-system, sans-serif;
+  --font-family: 'Inter', 'Noto Sans JP', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-family, 'Inter', 'Noto Sans JP', system-ui, -apple-system, sans-serif);
 }
 
 body {

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ strings["mealPlans.detail"] }}: {{ plan.name }}</h1>
+<p class="muted">{{ plan.start_date }} - {{ plan.end_date }}</p>
+<div class="actions">
+    <a class="ghost" href="/meal-plans/{{ plan.id }}/ingredients">{{ strings["mealPlans.ingredients"] }}</a>
+    <a class="ghost" href="/meal-plans">{{ strings["mealPlans.heading"] }}</a>
+</div>
+<div class="card">
+    <form method="post" action="/meal-plans/{{ plan.id }}">
+        <table>
+            <tr>
+                <th>Date</th>
+                <th>{{ strings["mealPlans.lunch"] }} (セットと料理)</th>
+                <th>{{ strings["mealPlans.dinner"] }} (セットと料理)</th>
+            </tr>
+            {% for day in days %}
+            <tr>
+                <td>{{ day.day_date }}<input type="hidden" name="day_dates" value="{{ day.day_date }}"></td>
+                <td>
+                    <input type="hidden" name="lunch_menu_ids" value="{{ day.lunch_menu_id or '' }}">
+                    <label>セット
+                        <select name="lunch_set_ids">
+                            <option value="">(未選択)</option>
+                            {% for s in set_templates %}
+                            <option value="{{ s.id }}" {% if day.lunch_set_template_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    {% set idx = loop.index0 %}
+                    {% set reqs = requirement_map.get(day.lunch_set_template_id, []) %}
+                    {% for req in reqs %}
+                    <div class="muted">{{ dish_types|selectattr('id','equalto',req.dish_type_id)|map(attribute='name')|list|first }} x {{ req.required_count }}</div>
+                    {% set existing = selections.get((day.id, 'lunch', req.dish_type_id), []) %}
+                    {% for pos in range(req.required_count) %}
+                    {% set selected_menu = existing[pos] if existing|length > pos else '' %}
+                    <select name="lunch_selection-{{ idx }}-{{ req.dish_type_id }}">
+                        <option value="">-</option>
+                        {% for menu in menus if menu.dish_type_id == req.dish_type_id %}
+                        <option value="{{ menu.id }}" {% if selected_menu == menu.id %}selected{% endif %}>{{ menu.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endfor %}
+                    {% endfor %}
+                </td>
+                <td>
+                    <input type="hidden" name="dinner_menu_ids" value="{{ day.dinner_menu_id or '' }}">
+                    <label>セット
+                        <select name="dinner_set_ids">
+                            <option value="">(未選択)</option>
+                            {% for s in set_templates %}
+                            <option value="{{ s.id }}" {% if day.dinner_set_template_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    {% set idx = loop.index0 %}
+                    {% set reqs = requirement_map.get(day.dinner_set_template_id, []) %}
+                    {% for req in reqs %}
+                    <div class="muted">{{ dish_types|selectattr('id','equalto',req.dish_type_id)|map(attribute='name')|list|first }} x {{ req.required_count }}</div>
+                    {% set existing_list = selections.get((day.id, 'dinner', req.dish_type_id), []) %}
+                    {% for pos in range(req.required_count) %}
+                    {% set selected_menu = existing_list[pos] if existing_list|length > pos else '' %}
+                    <select name="dinner_selection-{{ idx }}-{{ req.dish_type_id }}">
+                        <option value="">-</option>
+                        {% for menu in menus if menu.dish_type_id == req.dish_type_id %}
+                        <option value="{{ menu.id }}" {% if selected_menu == menu.id %}selected{% endif %}>{{ menu.name }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endfor %}
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        <button type="submit">{{ strings["mealPlans.save"] }}</button>
+    </form>
+</div>
+{% endblock %}
