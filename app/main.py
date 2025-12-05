@@ -25,6 +25,7 @@ from .models import (
     RewardUse,
     Task,
     TaskStatus,
+    TaskCategory,
     TaskTemplate,
     User,
     RecurringTaskRule,
@@ -165,7 +166,36 @@ UI_STRINGS = {
         "settings.theme.mint": "Mint soda",
         "settings.theme.creamsicle": "Creamsicle",
         "settings.theme.night": "Twilight",
+        "settings.font": "Font",
+        "settings.font.modern": "Modern sans",
+        "settings.font.serif": "Serif",
+        "settings.font.rounded": "Rounded",
+        "settings.categories": "Task categories",
+        "settings.categories.add": "Add category",
+        "settings.dishTypes": "Dish types",
+        "settings.mealSets": "Meal set templates",
         "settings.update": "Update",
+        "rewards.heading": "Rewards",
+        "rewards.create": "Create reward template",
+        "rewards.title": "Title",
+        "rewards.cost": "Cost points",
+        "rewards.memo": "Memo",
+        "rewards.save": "Save",
+        "rewards.templates": "Reward templates",
+        "rewards.delete": "Delete",
+        "rewards.request": "Request",
+        "rewards.list": "Reward requests",
+        "rewards.status": "Status",
+        "rewards.owner": "Owner",
+        "rewards.action": "Action",
+        "rewards.none": "No reward requests yet.",
+        "points.heading": "Point History",
+        "points.balances": "Balances",
+        "points.date": "Date",
+        "points.user": "User",
+        "points.amount": "Amount",
+        "points.type": "Type",
+        "points.description": "Description",
     },
     "ja": {
         "brand": "おうちタスクボード",
@@ -269,7 +299,36 @@ UI_STRINGS = {
         "settings.theme.mint": "ミントソーダ",
         "settings.theme.creamsicle": "クリームソーダ",
         "settings.theme.night": "ゆめかわツイライト",
+        "settings.font": "フォント",
+        "settings.font.modern": "モダン",
+        "settings.font.serif": "セリフ",
+        "settings.font.rounded": "まるみ",
+        "settings.categories": "タスクカテゴリ",
+        "settings.categories.add": "カテゴリ追加",
+        "settings.dishTypes": "料理タイプ",
+        "settings.mealSets": "セットテンプレート",
         "settings.update": "更新",
+        "rewards.heading": "ごほうび",
+        "rewards.create": "ごほうびテンプレート作成",
+        "rewards.title": "タイトル",
+        "rewards.cost": "必要ポイント",
+        "rewards.memo": "メモ",
+        "rewards.save": "保存",
+        "rewards.templates": "テンプレート一覧",
+        "rewards.delete": "削除",
+        "rewards.request": "申請",
+        "rewards.list": "ごほうび申請一覧",
+        "rewards.status": "ステータス",
+        "rewards.owner": "申請者",
+        "rewards.action": "操作",
+        "rewards.none": "申請はまだありません。",
+        "points.heading": "ポイント履歴",
+        "points.balances": "残高一覧",
+        "points.date": "日付",
+        "points.user": "ユーザー",
+        "points.amount": "ポイント",
+        "points.type": "種別",
+        "points.description": "詳細",
     },
 }
 
@@ -283,6 +342,12 @@ STATUS_LABELS = {
 }
 
 THEME_CHOICES = ["sakura", "mint", "creamsicle", "night"]
+FONT_STACKS = {
+    "modern": "'Inter', 'Noto Sans JP', system-ui, -apple-system, sans-serif",
+    "serif": "'Noto Serif JP', 'Times New Roman', 'Hiragino Mincho Pro', serif",
+    "rounded": "'Nunito', 'Noto Sans JP', 'Hiragino Maru Gothic Pro', 'Rounded Mplus 1c', sans-serif",
+}
+FONT_CHOICES = list(FONT_STACKS.keys())
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 
 
@@ -314,6 +379,17 @@ def get_theme(request: Request, session: Session, user: Optional[User] = None) -
     theme = theme or THEME_CHOICES[0]
     request.session["theme"] = theme
     return theme
+
+
+def get_font(request: Request, session: Session, user: Optional[User] = None) -> str:
+    font = request.session.get("font")
+    if not font and user:
+        household = session.get(Household, user.household_id)
+        if household:
+            font = household.font
+    font = font or FONT_CHOICES[0]
+    request.session["font"] = font
+    return font
 
 
 def translate_status(status: TaskStatus, language: str) -> str:
@@ -372,13 +448,17 @@ def build_context(
 ) -> dict:
     language = get_language(request, session, user)
     theme = get_theme(request, session, user)
+    font = get_font(request, session, user)
     context = {
         "request": request,
         "user": user,
         "language": language,
         "theme": theme,
+        "font": font,
+        "font_stack": FONT_STACKS.get(font, FONT_STACKS[FONT_CHOICES[0]]),
         "strings": get_strings(language),
         "theme_choices": THEME_CHOICES,
+        "font_choices": FONT_CHOICES,
         "flash_messages": pop_flash(request),
         "translate_status": translate_status,
         "render_instructions": render_instructions,
@@ -464,6 +544,14 @@ def get_unit_options(session: Session, household_id: int):
     ).all()
 
 
+def get_task_categories(session: Session, household_id: int):
+    return session.exec(
+        select(TaskCategory)
+        .where(TaskCategory.household_id == household_id)
+        .order_by(TaskCategory.name)
+    ).all()
+
+
 def seed_household_dish_types(session: Session, household_id: int):
     existing = {d.name for d in get_dish_types(session, household_id)}
     defaults = [
@@ -481,11 +569,21 @@ def seed_household_dish_types(session: Session, household_id: int):
 
 def seed_household_unit_options(session: Session, household_id: int):
     existing = {u.name for u in get_unit_options(session, household_id)}
-    defaults = ["個", "杯", "本", "g", "kg", "ml", "L", "枚", "パック"]
+    defaults = ["個", "杯", "本", "g", "kg", "ml", "L", "枚", "パック", "丁", "切れ", "玉", "片", "束"]
     for name in defaults:
         if name in existing:
             continue
         session.add(UnitOption(household_id=household_id, name=name, active=True))
+    session.commit()
+
+
+def seed_task_categories(session: Session, household_id: int):
+    existing = {c.name for c in get_task_categories(session, household_id)}
+    defaults = ["cleaning", "cooking", "laundry", "shopping", "other"]
+    for name in defaults:
+        if name in existing:
+            continue
+        session.add(TaskCategory(household_id=household_id, name=name))
     session.commit()
 
 
@@ -551,6 +649,42 @@ def seed_default_menus(session: Session, household_id: int):
             "dish_type": "Side",
             "ingredients": [("ごぼう", 1, "本"), ("人参", 0.5, "本"), ("醤油", 15, "ml")],
         },
+        {
+            "name": "カレーライス",
+            "description": "野菜たっぷりカレー",
+            "dish_type": "Main",
+            "ingredients": [("豚肉", 200, "g"), ("じゃがいも", 1, "個"), ("人参", 0.5, "本"), ("玉ねぎ", 0.5, "個"), ("カレールー", 1, "パック"), ("水", 400, "ml")],
+        },
+        {
+            "name": "唐揚げ",
+            "description": "にんにく醤油ベース",
+            "dish_type": "Main",
+            "ingredients": [("鶏もも肉", 300, "g"), ("醤油", 20, "ml"), ("にんにく", 1, "片"), ("片栗粉", 30, "g")],
+        },
+        {
+            "name": "豚汁",
+            "description": "根菜たっぷりの汁物",
+            "dish_type": "Soup",
+            "ingredients": [("豚肉", 100, "g"), ("大根", 0.25, "本"), ("人参", 0.5, "本"), ("味噌", 40, "g"), ("だし", 500, "ml")],
+        },
+        {
+            "name": "ひじき煮",
+            "description": "乾物の常備菜",
+            "dish_type": "Side",
+            "ingredients": [("ひじき", 20, "g"), ("人参", 0.25, "本"), ("油揚げ", 1, "枚"), ("醤油", 15, "ml")],
+        },
+        {
+            "name": "ポテトサラダ",
+            "description": "ゆで卵入り",
+            "dish_type": "Salad",
+            "ingredients": [("じゃがいも", 2, "個"), ("きゅうり", 0.5, "本"), ("マヨネーズ", 30, "g"), ("ゆで卵", 1, "個")],
+        },
+        {
+            "name": "ほうれん草のおひたし",
+            "description": "シンプルな副菜",
+            "dish_type": "Side",
+            "ingredients": [("ほうれん草", 1, "束"), ("醤油", 10, "ml"), ("かつお節", 1, "パック")],
+        },
     ]
     for sample in samples:
         dish_type = dish_types.get(sample["dish_type"])
@@ -582,6 +716,11 @@ def ensure_meal_seed_data(session: Session, household_id: int):
     seed_household_unit_options(session, household_id)
     seed_default_meal_sets(session, household_id)
     seed_default_menus(session, household_id)
+
+
+def ensure_household_defaults(session: Session, household_id: int):
+    ensure_meal_seed_data(session, household_id)
+    seed_task_categories(session, household_id)
 
 
 def get_menu_ingredients_map(session: Session, menu_ids: list[int]):
@@ -616,6 +755,27 @@ def get_meal_set_requirements(session: Session, template_ids: list[int]):
     for r in reqs:
         grouped.setdefault(r.meal_set_template_id, []).append(r)
     return grouped
+
+
+def set_meal_set_requirements(session: Session, template_id: int, counts: dict[int, int]):
+    existing = session.exec(
+        select(MealSetRequirement).where(
+            MealSetRequirement.meal_set_template_id == template_id
+        )
+    ).all()
+    for req in existing:
+        session.delete(req)
+    session.commit()
+    for dish_type_id, count in counts.items():
+        if count and count > 0:
+            session.add(
+                MealSetRequirement(
+                    meal_set_template_id=template_id,
+                    dish_type_id=dish_type_id,
+                    required_count=count,
+                )
+            )
+    session.commit()
 
 
 def ensure_meal_plan_days(session: Session, plan: MealPlan):
@@ -967,7 +1127,7 @@ async def register(
         session.commit()
         session.refresh(household)
         seed_household_templates(session, household.id)
-        ensure_meal_seed_data(session, household.id)
+        ensure_household_defaults(session, household.id)
     else:
         if not household_id:
             flash(request, "Select a household", "error")
@@ -979,7 +1139,7 @@ async def register(
         if household.join_code and join_code != household.join_code:
             flash(request, "Invalid join code", "error")
             return RedirectResponse("/register", status_code=303)
-        ensure_meal_seed_data(session, household.id)
+        ensure_household_defaults(session, household.id)
     existing = session.exec(
         select(User).where(User.email == email, User.household_id == household.id)
     ).first()
@@ -1054,7 +1214,7 @@ def settings_page(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
-    ensure_meal_seed_data(session, user.household_id)
+    ensure_household_defaults(session, user.household_id)
     templates_list = session.exec(
         select(TaskTemplate).where(TaskTemplate.household_id == user.household_id)
     ).all()
@@ -1067,6 +1227,8 @@ def settings_page(
     unit_options = get_unit_options(session, user.household_id)
     dish_types = get_dish_types(session, user.household_id)
     meal_sets = get_meal_set_templates(session, user.household_id)
+    meal_set_requirements = get_meal_set_requirements(session, [m.id for m in meal_sets if m.id])
+    categories = get_task_categories(session, user.household_id)
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -1084,6 +1246,8 @@ def settings_page(
                 "unit_options": unit_options,
                 "dish_types": dish_types,
                 "meal_sets": meal_sets,
+                "meal_set_requirements": meal_set_requirements,
+                "categories": categories,
             },
         ),
     )
@@ -1094,6 +1258,7 @@ async def update_language(
     request: Request,
     language: str = Form(...),
     theme: str = Form("sakura"),
+    font: str = Form("modern"),
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
@@ -1101,10 +1266,12 @@ async def update_language(
     if household:
         household.language = language
         household.theme = theme if theme in THEME_CHOICES else household.theme
+        household.font = font if font in FONT_CHOICES else household.font
         session.add(household)
         session.commit()
     request.session["language"] = language
     request.session["theme"] = theme if theme in THEME_CHOICES else request.session.get("theme", THEME_CHOICES[0])
+    request.session["font"] = font if font in FONT_CHOICES else request.session.get("font", FONT_CHOICES[0])
     flash(request, "Language and theme updated")
     return RedirectResponse("/settings", status_code=303)
 
@@ -1154,6 +1321,244 @@ async def add_unit_option(
         session.add(UnitOption(household_id=user.household_id, name=cleaned, active=True))
     session.commit()
     flash(request, "Unit option saved")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/categories")
+async def add_category(
+    request: Request,
+    name: str = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    ensure_household_defaults(session, user.household_id)
+    cleaned = name.strip()
+    if not cleaned:
+        flash(request, "Category name required", "error")
+        return RedirectResponse("/settings", status_code=303)
+    existing = session.exec(
+        select(TaskCategory).where(
+            TaskCategory.household_id == user.household_id, TaskCategory.name == cleaned
+        )
+    ).first()
+    if existing:
+        flash(request, "Category already exists")
+    else:
+        session.add(TaskCategory(household_id=user.household_id, name=cleaned))
+        session.commit()
+        flash(request, "Category added")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/categories/{category_id}/edit")
+async def edit_category(
+    request: Request,
+    category_id: int,
+    name: str = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    category = session.exec(
+        select(TaskCategory).where(
+            TaskCategory.id == category_id, TaskCategory.household_id == user.household_id
+        )
+    ).first()
+    if not category:
+        flash(request, "Category not found", "error")
+        return RedirectResponse("/settings", status_code=303)
+    cleaned = name.strip()
+    if not cleaned:
+        flash(request, "Category name required", "error")
+        return RedirectResponse("/settings", status_code=303)
+    category.name = cleaned
+    session.add(category)
+    session.commit()
+    flash(request, "Category updated")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/categories/{category_id}/delete")
+async def delete_category(
+    request: Request,
+    category_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    category = session.exec(
+        select(TaskCategory).where(
+            TaskCategory.id == category_id, TaskCategory.household_id == user.household_id
+        )
+    ).first()
+    if not category:
+        flash(request, "Category not found", "error")
+        return RedirectResponse("/settings", status_code=303)
+    session.delete(category)
+    session.commit()
+    flash(request, "Category deleted")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/dish-types")
+async def add_dish_type(
+    request: Request,
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    ensure_household_defaults(session, user.household_id)
+    cleaned = name.strip()
+    if not cleaned:
+        flash(request, "Dish type required", "error")
+        return RedirectResponse("/settings", status_code=303)
+    existing = session.exec(
+        select(DishType).where(DishType.household_id == user.household_id, DishType.name == cleaned)
+    ).first()
+    if existing:
+        flash(request, "Dish type already exists")
+    else:
+        session.add(DishType(household_id=user.household_id, name=cleaned, description=description))
+        session.commit()
+        flash(request, "Dish type added")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/dish-types/{dish_type_id}/edit")
+async def edit_dish_type(
+    request: Request,
+    dish_type_id: int,
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    dish_type = session.exec(
+        select(DishType).where(DishType.id == dish_type_id, DishType.household_id == user.household_id)
+    ).first()
+    if not dish_type:
+        flash(request, "Dish type not found", "error")
+        return RedirectResponse("/settings", status_code=303)
+    cleaned = name.strip()
+    if not cleaned:
+        flash(request, "Dish type required", "error")
+        return RedirectResponse("/settings", status_code=303)
+    dish_type.name = cleaned
+    dish_type.description = description
+    session.add(dish_type)
+    session.commit()
+    flash(request, "Dish type updated")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/dish-types/{dish_type_id}/delete")
+async def delete_dish_type(
+    request: Request,
+    dish_type_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    dish_type = session.exec(
+        select(DishType).where(DishType.id == dish_type_id, DishType.household_id == user.household_id)
+    ).first()
+    if not dish_type:
+        flash(request, "Dish type not found", "error")
+        return RedirectResponse("/settings", status_code=303)
+    session.delete(dish_type)
+    session.commit()
+    flash(request, "Dish type deleted")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/meal-sets")
+async def add_meal_set(
+    request: Request,
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    ensure_household_defaults(session, user.household_id)
+    cleaned = name.strip()
+    if not cleaned:
+        flash(request, "Set name required", "error")
+        return RedirectResponse("/settings", status_code=303)
+    template = MealSetTemplate(household_id=user.household_id, name=cleaned, description=description)
+    session.add(template)
+    session.commit()
+    session.refresh(template)
+    form = await request.form()
+    dish_types = get_dish_types(session, user.household_id)
+    counts = {}
+    for dt in dish_types:
+        key = f"requirement_{dt.id}"
+        if key in form and str(form[key]).strip():
+            try:
+                counts[dt.id] = int(form[key])
+            except ValueError:
+                continue
+    set_meal_set_requirements(session, template.id, counts)
+    flash(request, "Meal set added")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/meal-sets/{set_id}/edit")
+async def edit_meal_set(
+    request: Request,
+    set_id: int,
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    template = session.exec(
+        select(MealSetTemplate).where(
+            MealSetTemplate.id == set_id, MealSetTemplate.household_id == user.household_id
+        )
+    ).first()
+    if not template:
+        flash(request, "Set not found", "error")
+        return RedirectResponse("/settings", status_code=303)
+    cleaned = name.strip()
+    if not cleaned:
+        flash(request, "Set name required", "error")
+        return RedirectResponse("/settings", status_code=303)
+    template.name = cleaned
+    template.description = description
+    session.add(template)
+    session.commit()
+    form = await request.form()
+    dish_types = get_dish_types(session, user.household_id)
+    counts = {}
+    for dt in dish_types:
+        key = f"requirement_{dt.id}"
+        if key in form and str(form[key]).strip():
+            try:
+                counts[dt.id] = int(form[key])
+            except ValueError:
+                continue
+    set_meal_set_requirements(session, template.id, counts)
+    flash(request, "Meal set updated")
+    return RedirectResponse("/settings", status_code=303)
+
+
+@app.post("/settings/meal-sets/{set_id}/delete")
+async def delete_meal_set(
+    request: Request,
+    set_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    template = session.exec(
+        select(MealSetTemplate).where(
+            MealSetTemplate.id == set_id, MealSetTemplate.household_id == user.household_id
+        )
+    ).first()
+    if not template:
+        flash(request, "Set not found", "error")
+        return RedirectResponse("/settings", status_code=303)
+    session.delete(template)
+    session.commit()
+    flash(request, "Meal set deleted")
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -1593,6 +1998,7 @@ def new_task_form(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    ensure_household_defaults(session, user.household_id)
     template_data = None
     default_due_date = date.today()
     if template_id:
@@ -1615,6 +2021,7 @@ def new_task_form(
                 "template": template_data,
                 "default_due_date": default_due_date,
                 "assignees": get_household_users(session, user.household_id),
+                "categories": get_task_categories(session, user.household_id),
             },
         ),
     )
@@ -1636,6 +2043,7 @@ async def create_task(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    ensure_household_defaults(session, user.household_id)
     order_num = next_order_number(session, user.household_id)
     parsed_time: Optional[time] = None
     if due_time:
@@ -1673,6 +2081,7 @@ def edit_task_form(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    ensure_household_defaults(session, user.household_id)
     task = get_task(session, user.household_id, task_id)
     return templates.TemplateResponse(
         request,
@@ -1685,6 +2094,7 @@ def edit_task_form(
                 "task": task,
                 "default_due_date": task.due_date,
                 "assignees": get_household_users(session, user.household_id),
+                "categories": get_task_categories(session, user.household_id),
             },
         ),
     )
@@ -1803,6 +2213,10 @@ async def update_task_status(
 ):
     task = get_task(session, user.household_id, task_id)
     now = datetime.utcnow()
+    if actual_points is not None:
+        task.actual_points = actual_points
+    elif action in ["claim", "start"] and task.actual_points is None:
+        task.actual_points = task.proposed_points
     if action == "claim" and task.status == TaskStatus.open:
         task.assignee_user_id = user.id
         task.status = TaskStatus.assigned
@@ -1850,9 +2264,12 @@ def task_templates(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
-    templates_list = session.exec(
-        select(TaskTemplate).where(TaskTemplate.household_id == user.household_id)
-    ).all()
+    ensure_household_defaults(session, user.household_id)
+    selected_category = request.query_params.get("category") if request else None
+    templates_query = select(TaskTemplate).where(TaskTemplate.household_id == user.household_id)
+    if selected_category:
+        templates_query = templates_query.where(TaskTemplate.default_category == selected_category)
+    templates_list = session.exec(templates_query).all()
     return templates.TemplateResponse(
         request,
         "task_templates.html",
@@ -1860,7 +2277,11 @@ def task_templates(
             request,
             session,
             user,
-            {"templates": templates_list},
+            {
+                "templates": templates_list,
+                "categories": get_task_categories(session, user.household_id),
+                "selected_category": selected_category,
+            },
         ),
     )
 
@@ -1879,6 +2300,7 @@ async def create_task_template(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    ensure_household_defaults(session, user.household_id)
     uploaded_url = await store_instruction_upload(instruction_image_file)
     final_instruction_url = instruction_image_url or uploaded_url
     final_instructions = instructions or ""
@@ -1915,6 +2337,7 @@ async def edit_task_template(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    ensure_household_defaults(session, user.household_id)
     template = session.exec(
         select(TaskTemplate).where(
             TaskTemplate.id == template_id, TaskTemplate.household_id == user.household_id

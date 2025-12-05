@@ -37,6 +37,7 @@ class Household(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     language: str = Field(default="en")
     theme: str = Field(default="sakura")
+    font: str = Field(default="modern")
 
     users: list["User"] = Relationship(back_populates="household")
 
@@ -74,6 +75,13 @@ class Task(SQLModel, table=True):
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TaskCategory(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    household_id: int = Field(foreign_key="household.id")
+    name: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class TaskTemplate(SQLModel, table=True):
@@ -240,6 +248,7 @@ __all__ = [
     "RewardUse",
     "PointTransaction",
     "TaskStatus",
+    "TaskCategory",
     "RewardStatus",
     "PointTransactionType",
     "RecurringTaskRule",
