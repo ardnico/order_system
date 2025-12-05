@@ -29,6 +29,11 @@ from .models import (
     User,
     RecurringTaskRule,
     RecurringFrequency,
+    Ingredient,
+    Menu,
+    MenuIngredient,
+    MealPlan,
+    MealPlanDay,
 )
 
 @asynccontextmanager
@@ -59,6 +64,8 @@ UI_STRINGS = {
         "nav.templates": "Task Templates",
         "nav.rewards": "Rewards",
         "nav.points": "Point History",
+        "nav.mealPlans": "Meal Plans",
+        "nav.menus": "Menus",
         "nav.settings": "Settings",
         "nav.logout": "Logout",
         "dashboard.title": "Welcome",
@@ -110,6 +117,32 @@ UI_STRINGS = {
         "templates.upload": "Upload instruction image",
         "templates.uploaded": "Uploaded image",
         "templates.embedGuide": "Embed with image::<url>[] inside instructions.",
+        "menus.heading": "Menus",
+        "menus.new": "Add menu",
+        "menus.name": "Menu name",
+        "menus.description": "Description",
+        "menus.ingredients": "Ingredients",
+        "menus.unit": "Unit",
+        "menus.quantity": "Quantity",
+        "menus.save": "Save menu",
+        "menus.edit": "Edit menu",
+        "menus.delete": "Delete",
+        "menus.none": "No menus yet.",
+        "mealPlans.heading": "Meal plans",
+        "mealPlans.new": "Create plan",
+        "mealPlans.name": "Plan name",
+        "mealPlans.start": "Start date",
+        "mealPlans.end": "End date",
+        "mealPlans.open": "Open plan",
+        "mealPlans.none": "No meal plans yet.",
+        "mealPlans.detail": "Meal plan",
+        "mealPlans.lunch": "Lunch",
+        "mealPlans.dinner": "Dinner",
+        "mealPlans.save": "Save plan",
+        "mealPlans.ingredients": "Ingredients list",
+        "ingredients.heading": "Ingredients",
+        "ingredients.total": "Total quantity",
+        "ingredients.unit": "Unit",
         "settings.heading": "Settings",
         "settings.language": "Language",
         "settings.recurring": "Recurring tasks",
@@ -135,6 +168,8 @@ UI_STRINGS = {
         "nav.templates": "タスクテンプレート",
         "nav.rewards": "ごほうび",
         "nav.points": "ポイント履歴",
+        "nav.mealPlans": "献立",
+        "nav.menus": "メニュー",
         "nav.settings": "設定",
         "nav.logout": "ログアウト",
         "dashboard.title": "ようこそ",
@@ -186,6 +221,32 @@ UI_STRINGS = {
         "templates.upload": "手順用の画像をアップロード",
         "templates.uploaded": "アップロード済み画像",
         "templates.embedGuide": "手順に image::<url>[] を差し込んで表示できます",
+        "menus.heading": "メニュー",
+        "menus.new": "メニュー追加",
+        "menus.name": "メニュー名",
+        "menus.description": "説明",
+        "menus.ingredients": "材料",
+        "menus.unit": "単位",
+        "menus.quantity": "数量",
+        "menus.save": "メニューを保存",
+        "menus.edit": "メニュー編集",
+        "menus.delete": "削除",
+        "menus.none": "メニューはまだありません",
+        "mealPlans.heading": "献立",
+        "mealPlans.new": "献立を作成",
+        "mealPlans.name": "献立名",
+        "mealPlans.start": "開始日",
+        "mealPlans.end": "終了日",
+        "mealPlans.open": "開く",
+        "mealPlans.none": "献立はまだありません",
+        "mealPlans.detail": "献立詳細",
+        "mealPlans.lunch": "昼",
+        "mealPlans.dinner": "夜",
+        "mealPlans.save": "献立を保存",
+        "mealPlans.ingredients": "材料一覧",
+        "ingredients.heading": "材料",
+        "ingredients.total": "合計数量",
+        "ingredients.unit": "単位",
         "settings.heading": "設定",
         "settings.language": "言語",
         "settings.recurring": "定期タスク設定",
@@ -359,6 +420,105 @@ def next_order_number(session: Session, household_id: int) -> int:
         select(func.max(Task.order_number)).where(Task.household_id == household_id)
     ).one()
     return int(current_max or 0) + 1
+
+
+def get_or_create_ingredient(
+    session: Session, household_id: int, name: str, unit: Optional[str]
+):
+    ingredient = session.exec(
+        select(Ingredient).where(
+            Ingredient.household_id == household_id, Ingredient.name == name, Ingredient.unit == unit
+        )
+    ).first()
+    if not ingredient:
+        ingredient = Ingredient(household_id=household_id, name=name, unit=unit)
+        session.add(ingredient)
+        session.commit()
+        session.refresh(ingredient)
+    return ingredient
+
+
+def get_menus_for_household(session: Session, household_id: int):
+    return (
+        session.exec(select(Menu).where(Menu.household_id == household_id).order_by(Menu.name)).all()
+    )
+
+
+def get_menu_ingredients_map(session: Session, menu_ids: list[int]):
+    if not menu_ids:
+        return {}
+    rows = session.exec(
+        select(MenuIngredient.menu_id, Ingredient.name, MenuIngredient.quantity, Ingredient.unit)
+        .join(Ingredient, Ingredient.id == MenuIngredient.ingredient_id)
+        .where(MenuIngredient.menu_id.in_(menu_ids))
+    ).all()
+    mapping: dict[int, list[dict]] = {}
+    for menu_id, name, qty, unit in rows:
+        mapping.setdefault(menu_id, []).append({"name": name, "quantity": qty, "unit": unit})
+    return mapping
+
+
+def ensure_meal_plan_days(session: Session, plan: MealPlan):
+    existing = session.exec(
+        select(MealPlanDay).where(MealPlanDay.meal_plan_id == plan.id)
+    ).all()
+    existing_dates = {d.day_date for d in existing}
+    day = plan.start_date
+    while day <= plan.end_date:
+        if day not in existing_dates:
+            session.add(MealPlanDay(meal_plan_id=plan.id, day_date=day))
+        day += timedelta(days=1)
+    session.commit()
+
+
+def aggregate_meal_plan_ingredients(session: Session, plan: MealPlan):
+    days = session.exec(
+        select(MealPlanDay).where(MealPlanDay.meal_plan_id == plan.id)
+    ).all()
+    menu_ids: list[int] = []
+    for d in days:
+        if d.lunch_menu_id:
+            menu_ids.append(d.lunch_menu_id)
+        if d.dinner_menu_id:
+            menu_ids.append(d.dinner_menu_id)
+    if not menu_ids:
+        return []
+    rows = session.exec(
+        select(Ingredient.name, Ingredient.unit, func.sum(MenuIngredient.quantity))
+        .join(MenuIngredient, MenuIngredient.ingredient_id == Ingredient.id)
+        .join(Menu, Menu.id == MenuIngredient.menu_id)
+        .where(Menu.id.in_(menu_ids), Menu.household_id == plan.household_id)
+        .group_by(Ingredient.name, Ingredient.unit)
+    ).all()
+    return [
+        {"name": name, "unit": unit, "quantity": float(total or 0)}
+        for name, unit, total in rows
+    ]
+
+
+def save_menu_ingredients(
+    session: Session,
+    menu: Menu,
+    names: list[str],
+    quantities: list[str],
+    units: list[str],
+    household_id: int,
+):
+    existing = session.exec(select(MenuIngredient).where(MenuIngredient.menu_id == menu.id)).all()
+    for entry in existing:
+        session.delete(entry)
+    session.commit()
+    for name, qty_raw, unit in zip(names, quantities, units):
+        cleaned = name.strip()
+        if not cleaned:
+            continue
+        try:
+            qty = float(qty_raw)
+        except (TypeError, ValueError):
+            qty = 0
+        ingredient = get_or_create_ingredient(session, household_id, cleaned, unit.strip() or None)
+        session.add(MenuIngredient(menu_id=menu.id, ingredient_id=ingredient.id, quantity=qty))
+    session.commit()
 
 
 def get_task(session: Session, household_id: int, task_id: int) -> Task:
@@ -751,6 +911,273 @@ async def toggle_recurring_rule(
     session.commit()
     flash(request, "Rule updated")
     return RedirectResponse("/settings", status_code=303)
+
+
+@app.get("/menus", response_class=HTMLResponse)
+def list_menus(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    menus = get_menus_for_household(session, user.household_id)
+    ingredients_map = get_menu_ingredients_map(session, [m.id for m in menus if m.id])
+    return templates.TemplateResponse(
+        request,
+        "menus/list.html",
+        build_context(
+            request,
+            session,
+            user,
+            {"menus": menus, "ingredients_map": ingredients_map},
+        ),
+    )
+
+
+@app.post("/menus")
+async def create_menu(
+    request: Request,
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    ingredient_names: list[str] = Form([]),
+    ingredient_quantities: list[str] = Form([]),
+    ingredient_units: list[str] = Form([]),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    cleaned_name = name.strip()
+    if not cleaned_name:
+        flash(request, "Menu name required", "error")
+        return RedirectResponse("/menus", status_code=303)
+    menu = Menu(household_id=user.household_id, name=cleaned_name, description=description or None)
+    session.add(menu)
+    session.commit()
+    session.refresh(menu)
+    save_menu_ingredients(
+        session,
+        menu,
+        ingredient_names,
+        ingredient_quantities,
+        ingredient_units,
+        user.household_id,
+    )
+    flash(request, "Menu created")
+    return RedirectResponse("/menus", status_code=303)
+
+
+@app.get("/menus/{menu_id}/edit", response_class=HTMLResponse)
+def edit_menu_page(
+    request: Request,
+    menu_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    menu = session.get(Menu, menu_id)
+    if not menu or menu.household_id != user.household_id:
+        flash(request, "Menu not found", "error")
+        return RedirectResponse("/menus", status_code=303)
+    ingredients = get_menu_ingredients_map(session, [menu.id]).get(menu.id, [])
+    return templates.TemplateResponse(
+        request,
+        "menus/edit.html",
+        build_context(
+            request,
+            session,
+            user,
+            {"menu": menu, "ingredients": ingredients},
+        ),
+    )
+
+
+@app.post("/menus/{menu_id}/edit")
+async def update_menu(
+    request: Request,
+    menu_id: int,
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    ingredient_names: list[str] = Form([]),
+    ingredient_quantities: list[str] = Form([]),
+    ingredient_units: list[str] = Form([]),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    menu = session.get(Menu, menu_id)
+    if not menu or menu.household_id != user.household_id:
+        flash(request, "Menu not found", "error")
+        return RedirectResponse("/menus", status_code=303)
+    menu.name = name.strip() or menu.name
+    menu.description = description or None
+    session.add(menu)
+    session.commit()
+    save_menu_ingredients(
+        session,
+        menu,
+        ingredient_names,
+        ingredient_quantities,
+        ingredient_units,
+        user.household_id,
+    )
+    flash(request, "Menu updated")
+    return RedirectResponse("/menus", status_code=303)
+
+
+@app.post("/menus/{menu_id}/delete")
+async def delete_menu(
+    request: Request,
+    menu_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    menu = session.get(Menu, menu_id)
+    if not menu or menu.household_id != user.household_id:
+        flash(request, "Menu not found", "error")
+        return RedirectResponse("/menus", status_code=303)
+    for entry in session.exec(
+        select(MenuIngredient).where(MenuIngredient.menu_id == menu.id)
+    ).all():
+        session.delete(entry)
+    session.delete(menu)
+    session.commit()
+    flash(request, "Menu deleted")
+    return RedirectResponse("/menus", status_code=303)
+
+
+@app.get("/meal-plans", response_class=HTMLResponse)
+def meal_plans_page(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    plans = session.exec(
+        select(MealPlan).where(MealPlan.household_id == user.household_id).order_by(MealPlan.start_date)
+    ).all()
+    return templates.TemplateResponse(
+        request,
+        "meal_plans/list.html",
+        build_context(
+            request,
+            session,
+            user,
+            {"plans": plans},
+        ),
+    )
+
+
+@app.post("/meal-plans")
+async def create_meal_plan(
+    request: Request,
+    name: str = Form(...),
+    start_date: date = Form(...),
+    end_date: date = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    if end_date < start_date:
+        flash(request, "End date must be after start date", "error")
+        return RedirectResponse("/meal-plans", status_code=303)
+    plan = MealPlan(
+        household_id=user.household_id,
+        name=name.strip(),
+        start_date=start_date,
+        end_date=end_date,
+        created_by_user_id=user.id,
+    )
+    session.add(plan)
+    session.commit()
+    session.refresh(plan)
+    ensure_meal_plan_days(session, plan)
+    flash(request, "Meal plan created")
+    return RedirectResponse(f"/meal-plans/{plan.id}", status_code=303)
+
+
+@app.get("/meal-plans/{plan_id}", response_class=HTMLResponse)
+def meal_plan_detail(
+    request: Request,
+    plan_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    plan = session.get(MealPlan, plan_id)
+    if not plan or plan.household_id != user.household_id:
+        flash(request, "Meal plan not found", "error")
+        return RedirectResponse("/meal-plans", status_code=303)
+    ensure_meal_plan_days(session, plan)
+    days = session.exec(
+        select(MealPlanDay).where(MealPlanDay.meal_plan_id == plan.id).order_by(MealPlanDay.day_date)
+    ).all()
+    menus = get_menus_for_household(session, user.household_id)
+    return templates.TemplateResponse(
+        request,
+        "meal_plans/detail.html",
+        build_context(
+            request,
+            session,
+            user,
+            {"plan": plan, "days": days, "menus": menus},
+        ),
+    )
+
+
+@app.post("/meal-plans/{plan_id}")
+async def update_meal_plan(
+    request: Request,
+    plan_id: int,
+    day_dates: list[str] = Form(...),
+    lunch_menu_ids: list[str] = Form([]),
+    dinner_menu_ids: list[str] = Form([]),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    plan = session.get(MealPlan, plan_id)
+    if not plan or plan.household_id != user.household_id:
+        flash(request, "Meal plan not found", "error")
+        return RedirectResponse("/meal-plans", status_code=303)
+    ensure_meal_plan_days(session, plan)
+    days = session.exec(
+        select(MealPlanDay).where(MealPlanDay.meal_plan_id == plan.id)
+    ).all()
+    day_lookup = {d.day_date: d for d in days}
+    valid_menu_ids = {m.id for m in get_menus_for_household(session, user.household_id)}
+    for day_str, lunch_id, dinner_id in zip(day_dates, lunch_menu_ids, dinner_menu_ids):
+        try:
+            parsed_day = date.fromisoformat(str(day_str))
+        except ValueError:
+            continue
+        d_obj = day_lookup.get(parsed_day)
+        if not d_obj:
+            continue
+        lunch_val = int(lunch_id) if lunch_id else None
+        dinner_val = int(dinner_id) if dinner_id else None
+        d_obj.lunch_menu_id = lunch_val if not lunch_val or lunch_val in valid_menu_ids else None
+        d_obj.dinner_menu_id = dinner_val if not dinner_val or dinner_val in valid_menu_ids else None
+        session.add(d_obj)
+    session.commit()
+    flash(request, "Meal plan updated")
+    return RedirectResponse(f"/meal-plans/{plan.id}", status_code=303)
+
+
+@app.get("/meal-plans/{plan_id}/ingredients", response_class=HTMLResponse)
+def meal_plan_ingredients(
+    request: Request,
+    plan_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    plan = session.get(MealPlan, plan_id)
+    if not plan or plan.household_id != user.household_id:
+        flash(request, "Meal plan not found", "error")
+        return RedirectResponse("/meal-plans", status_code=303)
+    ensure_meal_plan_days(session, plan)
+    totals = aggregate_meal_plan_ingredients(session, plan)
+    return templates.TemplateResponse(
+        request,
+        "meal_plans/ingredients.html",
+        build_context(
+            request,
+            session,
+            user,
+            {"plan": plan, "ingredients": totals},
+        ),
+    )
 
 
 @app.get("/tasks", response_class=HTMLResponse)
