@@ -11,6 +11,14 @@
             <label>{{ strings["menus.description"] }}
                 <textarea name="description"></textarea>
             </label>
+            <label>料理タイプ
+                <select name="dish_type_id">
+                    <option value="">(選択)</option>
+                    {% for dt in dish_types %}
+                    <option value="{{ dt.id }}">{{ dt.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
             <h3>{{ strings["menus.ingredients"] }}</h3>
             <table>
                 <tr>
@@ -22,7 +30,14 @@
                 <tr>
                     <td><input name="ingredient_names"></td>
                     <td><input name="ingredient_quantities" type="number" step="0.1"></td>
-                    <td><input name="ingredient_units"></td>
+                    <td>
+                        <select name="ingredient_units">
+                            <option value=""></option>
+                            {% for unit in unit_options %}
+                            <option value="{{ unit.name }}">{{ unit.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
                 </tr>
                 {% endfor %}
             </table>
@@ -42,6 +57,9 @@
                     </form>
                 </div>
             </div>
+            {% if menu.dish_type_id %}
+            <p class="muted">タイプ: {{ dish_types|selectattr('id','equalto',menu.dish_type_id)|map(attribute='name')|list|first }}</p>
+            {% endif %}
             {% if menu.description %}<p class="muted">{{ menu.description }}</p>{% endif %}
             <ul>
                 {% for ing in ingredients_map.get(menu.id, []) %}

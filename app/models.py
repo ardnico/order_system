@@ -13,6 +13,11 @@ class TaskStatus(str, Enum):
     cancelled = "cancelled"
 
 
+class MealSlot(str, Enum):
+    lunch = "lunch"
+    dinner = "dinner"
+
+
 class RewardStatus(str, Enum):
     pending = "pending"
     approved = "approved"
@@ -64,6 +69,8 @@ class Task(SQLModel, table=True):
     created_by_user_id: int = Field(foreign_key="user.id")
     assignee_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     task_template_id: Optional[int] = Field(default=None, foreign_key="tasktemplate.id")
+    meal_plan_day_id: Optional[int] = Field(default=None, foreign_key="mealplanday.id")
+    meal_slot: Optional[MealSlot] = Field(default=None)
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -142,11 +149,28 @@ class Ingredient(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class DishType(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    household_id: int = Field(foreign_key="household.id")
+    name: str
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UnitOption(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    household_id: int = Field(foreign_key="household.id")
+    name: str
+    active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Menu(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     household_id: int = Field(foreign_key="household.id")
     name: str
     description: Optional[str] = None
+    dish_type_id: Optional[int] = Field(default=None, foreign_key="dishtype.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     ingredients: list["MenuIngredient"] = Relationship(back_populates="menu")
@@ -157,6 +181,7 @@ class MenuIngredient(SQLModel, table=True):
     menu_id: int = Field(foreign_key="menu.id")
     ingredient_id: int = Field(foreign_key="ingredient.id")
     quantity: float = Field(default=0)
+    unit_option_id: Optional[int] = Field(default=None, foreign_key="unitoption.id")
 
     menu: Menu = Relationship(back_populates="ingredients")
     ingredient: Ingredient = Relationship()
@@ -178,6 +203,32 @@ class MealPlanDay(SQLModel, table=True):
     day_date: date
     lunch_menu_id: Optional[int] = Field(default=None, foreign_key="menu.id")
     dinner_menu_id: Optional[int] = Field(default=None, foreign_key="menu.id")
+    lunch_set_template_id: Optional[int] = Field(default=None, foreign_key="mealsettemplate.id")
+    dinner_set_template_id: Optional[int] = Field(default=None, foreign_key="mealsettemplate.id")
+
+
+class MealSetTemplate(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    household_id: int = Field(foreign_key="household.id")
+    name: str
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MealSetRequirement(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    meal_set_template_id: int = Field(foreign_key="mealsettemplate.id")
+    dish_type_id: int = Field(foreign_key="dishtype.id")
+    required_count: int = Field(default=1)
+
+
+class MealPlanSelection(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    meal_plan_day_id: int = Field(foreign_key="mealplanday.id")
+    meal_slot: MealSlot
+    dish_type_id: int = Field(foreign_key="dishtype.id")
+    menu_id: Optional[int] = Field(default=None, foreign_key="menu.id")
+    position: int = Field(default=1)
 
 
 __all__ = [
@@ -194,8 +245,14 @@ __all__ = [
     "RecurringTaskRule",
     "RecurringFrequency",
     "Ingredient",
+    "DishType",
+    "UnitOption",
+    "MealSlot",
     "Menu",
     "MenuIngredient",
     "MealPlan",
     "MealPlanDay",
+    "MealSetTemplate",
+    "MealSetRequirement",
+    "MealPlanSelection",
 ]

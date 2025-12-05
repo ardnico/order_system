@@ -71,4 +71,40 @@
         </div>
     </div>
 </div>
+
+<div class="grid">
+    <div class="card">
+        <h3>食材単位の管理</h3>
+        <form method="post" action="/settings/unit-options" class="inline-form">
+            <label>単位
+                <input name="name" placeholder="例: 個" required>
+            </label>
+            <button type="submit">追加</button>
+        </form>
+        <ul class="muted">
+            {% for unit in unit_options %}
+            <li>{{ unit.name }}</li>
+            {% else %}
+            <li>まだ単位がありません</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="card">
+        <h3>料理タイプとセット</h3>
+        <p class="muted">セットを選ぶと種別ごとのメニューを要求します。</p>
+        <ul>
+            {% for dt in dish_types %}
+            <li>{{ dt.name }}</li>
+            {% endfor %}
+        </ul>
+        <h4>セットテンプレート</h4>
+        <ul>
+            {% for s in meal_sets %}
+            <li>{{ s.name }} — {{ s.description }}</li>
+            {% else %}
+            <li class="muted">セットが未登録です</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
 {% endblock %}

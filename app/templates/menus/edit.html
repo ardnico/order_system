@@ -9,6 +9,14 @@
         <label>{{ strings["menus.description"] }}
             <textarea name="description">{{ menu.description or '' }}</textarea>
         </label>
+        <label>料理タイプ
+            <select name="dish_type_id">
+                <option value="">(選択)</option>
+                {% for dt in dish_types %}
+                <option value="{{ dt.id }}" {% if menu.dish_type_id == dt.id %}selected{% endif %}>{{ dt.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
         <h3>{{ strings["menus.ingredients"] }}</h3>
         <table>
             <tr>
@@ -20,14 +28,28 @@
             <tr>
                 <td><input name="ingredient_names" value="{{ ing.name }}"></td>
                 <td><input name="ingredient_quantities" type="number" step="0.1" value="{{ ing.quantity }}"></td>
-                <td><input name="ingredient_units" value="{{ ing.unit or '' }}"></td>
+                <td>
+                    <select name="ingredient_units">
+                        <option value=""></option>
+                        {% for unit in unit_options %}
+                        <option value="{{ unit.name }}" {% if ing.unit == unit.name %}selected{% endif %}>{{ unit.name }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
             </tr>
             {% endfor %}
             {% for i in range(5 - ingredients|length) %}
             <tr>
                 <td><input name="ingredient_names"></td>
                 <td><input name="ingredient_quantities" type="number" step="0.1"></td>
-                <td><input name="ingredient_units"></td>
+                <td>
+                    <select name="ingredient_units">
+                        <option value=""></option>
+                        {% for unit in unit_options %}
+                        <option value="{{ unit.name }}">{{ unit.name }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
             </tr>
             {% endfor %}
         </table>

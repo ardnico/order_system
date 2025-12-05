@@ -30,10 +30,16 @@ from .models import (
     RecurringTaskRule,
     RecurringFrequency,
     Ingredient,
+    DishType,
+    UnitOption,
+    MealSlot,
     Menu,
     MenuIngredient,
     MealPlan,
     MealPlanDay,
+    MealSetTemplate,
+    MealSetRequirement,
+    MealPlanSelection,
 )
 
 @asynccontextmanager
@@ -444,6 +450,140 @@ def get_menus_for_household(session: Session, household_id: int):
     )
 
 
+def get_dish_types(session: Session, household_id: int):
+    return session.exec(
+        select(DishType).where(DishType.household_id == household_id).order_by(DishType.name)
+    ).all()
+
+
+def get_unit_options(session: Session, household_id: int):
+    return session.exec(
+        select(UnitOption)
+        .where(UnitOption.household_id == household_id, UnitOption.active == True)  # noqa: E712
+        .order_by(UnitOption.name)
+    ).all()
+
+
+def seed_household_dish_types(session: Session, household_id: int):
+    existing = {d.name for d in get_dish_types(session, household_id)}
+    defaults = [
+        {"name": "Main", "description": "メイン"},
+        {"name": "Soup", "description": "汁物"},
+        {"name": "Side", "description": "副菜"},
+        {"name": "Salad", "description": "サラダ"},
+    ]
+    for entry in defaults:
+        if entry["name"] in existing:
+            continue
+        session.add(DishType(household_id=household_id, **entry))
+    session.commit()
+
+
+def seed_household_unit_options(session: Session, household_id: int):
+    existing = {u.name for u in get_unit_options(session, household_id)}
+    defaults = ["個", "杯", "本", "g", "kg", "ml", "L", "枚", "パック"]
+    for name in defaults:
+        if name in existing:
+            continue
+        session.add(UnitOption(household_id=household_id, name=name, active=True))
+    session.commit()
+
+
+def seed_default_meal_sets(session: Session, household_id: int):
+    seed_household_dish_types(session, household_id)
+    seed_household_unit_options(session, household_id)
+    existing_set = session.exec(
+        select(MealSetTemplate).where(MealSetTemplate.household_id == household_id)
+    ).first()
+    if existing_set:
+        return
+    template = MealSetTemplate(household_id=household_id, name="Aセット", description="汁物1・メイン1・サイド2")
+    session.add(template)
+    session.commit()
+    session.refresh(template)
+    dish_type_map = {d.name: d for d in get_dish_types(session, household_id)}
+    requirements = [
+        ("Soup", 1),
+        ("Main", 1),
+        ("Side", 2),
+    ]
+    for name, count in requirements:
+        dt = dish_type_map.get(name)
+        if not dt:
+            continue
+        session.add(
+            MealSetRequirement(
+                meal_set_template_id=template.id, dish_type_id=dt.id, required_count=count
+            )
+        )
+    session.commit()
+
+
+def seed_default_menus(session: Session, household_id: int):
+    seed_household_dish_types(session, household_id)
+    existing = session.exec(select(Menu).where(Menu.household_id == household_id)).first()
+    if existing:
+        return
+    dish_types = {d.name: d for d in get_dish_types(session, household_id)}
+    unit_options = {u.name: u for u in get_unit_options(session, household_id)}
+    samples = [
+        {
+            "name": "味噌汁",
+            "description": "豆腐とわかめの味噌汁",
+            "dish_type": "Soup",
+            "ingredients": [("豆腐", 1, "丁"), ("味噌", 30, "g"), ("だし", 400, "ml")],
+        },
+        {
+            "name": "焼き魚",
+            "description": "塩鮭のグリル",
+            "dish_type": "Main",
+            "ingredients": [("鮭", 2, "切れ"), ("塩", 2, "g")],
+        },
+        {
+            "name": "サラダ",
+            "description": "グリーンサラダ",
+            "dish_type": "Side",
+            "ingredients": [("レタス", 0.5, "玉"), ("トマト", 1, "個"), ("ドレッシング", 20, "ml")],
+        },
+        {
+            "name": "きんぴらごぼう",
+            "description": "ごぼうと人参",
+            "dish_type": "Side",
+            "ingredients": [("ごぼう", 1, "本"), ("人参", 0.5, "本"), ("醤油", 15, "ml")],
+        },
+    ]
+    for sample in samples:
+        dish_type = dish_types.get(sample["dish_type"])
+        menu = Menu(
+            household_id=household_id,
+            name=sample["name"],
+            description=sample.get("description"),
+            dish_type_id=dish_type.id if dish_type else None,
+        )
+        session.add(menu)
+        session.commit()
+        session.refresh(menu)
+        for ing_name, qty, unit in sample["ingredients"]:
+            unit_option = unit_options.get(unit)
+            ingredient = get_or_create_ingredient(session, household_id, ing_name, unit)
+            session.add(
+                MenuIngredient(
+                    menu_id=menu.id,
+                    ingredient_id=ingredient.id,
+                    quantity=float(qty),
+                    unit_option_id=unit_option.id if unit_option else None,
+                )
+            )
+        session.commit()
+
+
+def ensure_meal_seed_data(session: Session, household_id: int):
+    seed_household_dish_types(session, household_id)
+    seed_household_unit_options(session, household_id)
+    seed_default_meal_sets(session, household_id)
+    seed_default_menus(session, household_id)
+
+
 def get_menu_ingredients_map(session: Session, menu_ids: list[int]):
     if not menu_ids:
         return {}
@@ -456,6 +596,26 @@ def get_menu_ingredients_map(session: Session, menu_ids: list[int]):
     for menu_id, name, qty, unit in rows:
         mapping.setdefault(menu_id, []).append({"name": name, "quantity": qty, "unit": unit})
     return mapping
+
+
+def get_meal_set_templates(session: Session, household_id: int):
+    return session.exec(
+        select(MealSetTemplate).where(MealSetTemplate.household_id == household_id).order_by(MealSetTemplate.name)
+    ).all()
+
+
+def get_meal_set_requirements(session: Session, template_ids: list[int]):
+    if not template_ids:
+        return {}
+    reqs = session.exec(
+        select(MealSetRequirement)
+        .where(MealSetRequirement.meal_set_template_id.in_(template_ids))
+        .order_by(MealSetRequirement.id)
+    ).all()
+    grouped: dict[int, list[MealSetRequirement]] = {}
+    for r in reqs:
+        grouped.setdefault(r.meal_set_template_id, []).append(r)
+    return grouped
 
 
 def ensure_meal_plan_days(session: Session, plan: MealPlan):
@@ -475,19 +635,29 @@ def aggregate_meal_plan_ingredients(session: Session, plan: MealPlan):
     days = session.exec(
         select(MealPlanDay).where(MealPlanDay.meal_plan_id == plan.id)
     ).all()
-    menu_ids: list[int] = []
+    menu_ids: set[int] = set()
     for d in days:
         if d.lunch_menu_id:
-            menu_ids.append(d.lunch_menu_id)
+            menu_ids.add(d.lunch_menu_id)
         if d.dinner_menu_id:
-            menu_ids.append(d.dinner_menu_id)
+            menu_ids.add(d.dinner_menu_id)
+    selection_menu_ids = {
+        mid
+        for mid in session.exec(
+            select(MealPlanSelection.menu_id)
+            .join(MealPlanDay, MealPlanDay.id == MealPlanSelection.meal_plan_day_id)
+            .where(MealPlanDay.meal_plan_id == plan.id, MealPlanSelection.menu_id.is_not(None))
+        ).all()
+        if mid
+    }
+    menu_ids.update(selection_menu_ids)
     if not menu_ids:
         return []
     rows = session.exec(
         select(Ingredient.name, Ingredient.unit, func.sum(MenuIngredient.quantity))
         .join(MenuIngredient, MenuIngredient.ingredient_id == Ingredient.id)
         .join(Menu, Menu.id == MenuIngredient.menu_id)
-        .where(Menu.id.in_(menu_ids), Menu.household_id == plan.household_id)
+        .where(Menu.id.in_(list(menu_ids)), Menu.household_id == plan.household_id)
         .group_by(Ingredient.name, Ingredient.unit)
     ).all()
     return [
@@ -649,6 +819,68 @@ def run_recurring_rules(session: Session, household_id: int, created_by_user_id:
     return created_tasks
 
 
+def run_meal_plan_tasks(session: Session, household_id: int, created_by_user_id: int):
+    today = date.today()
+    days = session.exec(
+        select(MealPlanDay)
+        .join(MealPlan, MealPlan.id == MealPlanDay.meal_plan_id)
+        .where(MealPlan.household_id == household_id, MealPlanDay.day_date <= today)
+    ).all()
+    created_tasks: list[Task] = []
+    menus_by_id = {m.id: m for m in get_menus_for_household(session, household_id) if m.id}
+    set_templates = {s.id: s for s in get_meal_set_templates(session, household_id) if s.id}
+    for day in days:
+        for slot in (MealSlot.lunch, MealSlot.dinner):
+            set_id = day.lunch_set_template_id if slot == MealSlot.lunch else day.dinner_set_template_id
+            selections = session.exec(
+                select(MealPlanSelection)
+                .where(MealPlanSelection.meal_plan_day_id == day.id, MealPlanSelection.meal_slot == slot)
+                .order_by(MealPlanSelection.position)
+            ).all()
+            if not set_id and not selections:
+                continue
+            existing = session.exec(
+                select(Task).where(
+                    Task.household_id == household_id,
+                    Task.meal_plan_day_id == day.id,
+                    Task.meal_slot == slot,
+                )
+            ).first()
+            if existing:
+                continue
+            menu_names = []
+            for sel in selections:
+                menu = menus_by_id.get(sel.menu_id)
+                if menu:
+                    menu_names.append(menu.name)
+            set_label = set_templates.get(set_id).name if set_id and set_id in set_templates else ""
+            slot_label = "昼食" if slot == MealSlot.lunch else "夕食"
+            title = f"{slot_label}準備: {set_label or '献立'}"
+            if menu_names:
+                title = f"{title} ({', '.join(menu_names)})"
+            description = "\n".join(menu_names) if menu_names else ""
+            order_num = next_order_number(session, household_id)
+            task = Task(
+                household_id=household_id,
+                order_number=order_num,
+                title=title,
+                description=description or None,
+                category="meal",
+                due_date=day.day_date,
+                proposed_points=2,
+                priority=2,
+                status=TaskStatus.open,
+                created_by_user_id=created_by_user_id,
+                meal_plan_day_id=day.id,
+                meal_slot=slot,
+            )
+            session.add(task)
+            created_tasks.append(task)
+    if created_tasks:
+        session.commit()
+    return created_tasks
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard(
     request: Request,
@@ -656,6 +888,7 @@ def dashboard(
     session: Session = Depends(get_session),
 ):
     run_recurring_rules(session, user.household_id, user.id)
+    run_meal_plan_tasks(session, user.household_id, user.id)
     user_balance = calculate_user_balance(session, user.id)
     household_balances = calculate_household_balance(session, user.household_id)
     household_users = get_household_users(session, user.household_id)
@@ -734,6 +967,7 @@ async def register(
         session.commit()
         session.refresh(household)
         seed_household_templates(session, household.id)
+        ensure_meal_seed_data(session, household.id)
     else:
         if not household_id:
             flash(request, "Select a household", "error")
@@ -745,6 +979,7 @@ async def register(
         if household.join_code and join_code != household.join_code:
             flash(request, "Invalid join code", "error")
             return RedirectResponse("/register", status_code=303)
+        ensure_meal_seed_data(session, household.id)
     existing = session.exec(
         select(User).where(User.email == email, User.household_id == household.id)
     ).first()
@@ -819,6 +1054,7 @@ def settings_page(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    ensure_meal_seed_data(session, user.household_id)
     templates_list = session.exec(
         select(TaskTemplate).where(TaskTemplate.household_id == user.household_id)
     ).all()
@@ -828,6 +1064,9 @@ def settings_page(
     household_users = get_household_users(session, user.household_id)
     assignee_map = {u.id: u for u in household_users}
     household = session.get(Household, user.household_id)
+    unit_options = get_unit_options(session, user.household_id)
+    dish_types = get_dish_types(session, user.household_id)
+    meal_sets = get_meal_set_templates(session, user.household_id)
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -842,6 +1081,9 @@ def settings_page(
                 "assignee_map": assignee_map,
                 "household": household,
                 "today": date.today(),
+                "unit_options": unit_options,
+                "dish_types": dish_types,
+                "meal_sets": meal_sets,
             },
         ),
     )
@@ -890,6 +1132,31 @@ async def add_recurring_rule(
     return RedirectResponse("/settings", status_code=303)
 
 
+@app.post("/settings/unit-options")
+async def add_unit_option(
+    request: Request,
+    name: str = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    ensure_meal_seed_data(session, user.household_id)
+    cleaned = name.strip()
+    if not cleaned:
+        flash(request, "Unit name required", "error")
+        return RedirectResponse("/settings", status_code=303)
+    existing = session.exec(
+        select(UnitOption).where(UnitOption.household_id == user.household_id, UnitOption.name == cleaned)
+    ).first()
+    if existing:
+        existing.active = True
+        session.add(existing)
+    else:
+        session.add(UnitOption(household_id=user.household_id, name=cleaned, active=True))
+    session.commit()
+    flash(request, "Unit option saved")
+    return RedirectResponse("/settings", status_code=303)
+
+
 @app.post("/settings/recurring/{rule_id}/toggle")
 async def toggle_recurring_rule(
     request: Request,
@@ -919,8 +1186,11 @@ def list_menus(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    ensure_meal_seed_data(session, user.household_id)
     menus = get_menus_for_household(session, user.household_id)
     ingredients_map = get_menu_ingredients_map(session, [m.id for m in menus if m.id])
+    dish_types = get_dish_types(session, user.household_id)
+    unit_options = get_unit_options(session, user.household_id)
     return templates.TemplateResponse(
         request,
         "menus/list.html",
@@ -928,7 +1198,12 @@ def list_menus(
             request,
             session,
             user,
-            {"menus": menus, "ingredients_map": ingredients_map},
+            {
+                "menus": menus,
+                "ingredients_map": ingredients_map,
+                "dish_types": dish_types,
+                "unit_options": unit_options,
+            },
         ),
     )
 
@@ -938,17 +1213,26 @@ async def create_menu(
     request: Request,
     name: str = Form(...),
     description: Optional[str] = Form(None),
+    dish_type_id: Optional[int] = Form(None),
     ingredient_names: list[str] = Form([]),
     ingredient_quantities: list[str] = Form([]),
     ingredient_units: list[str] = Form([]),
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    ensure_meal_seed_data(session, user.household_id)
     cleaned_name = name.strip()
     if not cleaned_name:
         flash(request, "Menu name required", "error")
         return RedirectResponse("/menus", status_code=303)
-    menu = Menu(household_id=user.household_id, name=cleaned_name, description=description or None)
+    valid_dish_types = {d.id for d in get_dish_types(session, user.household_id) if d.id}
+    dish_type_val = dish_type_id if dish_type_id in valid_dish_types else None
+    menu = Menu(
+        household_id=user.household_id,
+        name=cleaned_name,
+        description=description or None,
+        dish_type_id=dish_type_val,
+    )
     session.add(menu)
     session.commit()
     session.refresh(menu)
@@ -971,11 +1255,14 @@ def edit_menu_page(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    ensure_meal_seed_data(session, user.household_id)
     menu = session.get(Menu, menu_id)
     if not menu or menu.household_id != user.household_id:
         flash(request, "Menu not found", "error")
         return RedirectResponse("/menus", status_code=303)
     ingredients = get_menu_ingredients_map(session, [menu.id]).get(menu.id, [])
+    dish_types = get_dish_types(session, user.household_id)
+    unit_options = get_unit_options(session, user.household_id)
     return templates.TemplateResponse(
         request,
         "menus/edit.html",
@@ -983,7 +1270,12 @@ def edit_menu_page(
             request,
             session,
             user,
-            {"menu": menu, "ingredients": ingredients},
+            {
+                "menu": menu,
+                "ingredients": ingredients,
+                "dish_types": dish_types,
+                "unit_options": unit_options,
+            },
         ),
     )
 
@@ -994,6 +1286,7 @@ async def update_menu(
     menu_id: int,
     name: str = Form(...),
     description: Optional[str] = Form(None),
+    dish_type_id: Optional[int] = Form(None),
     ingredient_names: list[str] = Form([]),
     ingredient_quantities: list[str] = Form([]),
     ingredient_units: list[str] = Form([]),
@@ -1006,6 +1299,9 @@ async def update_menu(
         return RedirectResponse("/menus", status_code=303)
     menu.name = name.strip() or menu.name
     menu.description = description or None
+    valid_dish_types = {d.id for d in get_dish_types(session, user.household_id) if d.id}
+    if dish_type_id in valid_dish_types:
+        menu.dish_type_id = dish_type_id
     session.add(menu)
     session.commit()
     save_menu_ingredients(
@@ -1047,6 +1343,7 @@ def meal_plans_page(
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
+    ensure_meal_seed_data(session, user.household_id)
     plans = session.exec(
         select(MealPlan).where(MealPlan.household_id == user.household_id).order_by(MealPlan.start_date)
     ).all()
@@ -1100,11 +1397,25 @@ def meal_plan_detail(
     if not plan or plan.household_id != user.household_id:
         flash(request, "Meal plan not found", "error")
         return RedirectResponse("/meal-plans", status_code=303)
+    ensure_meal_seed_data(session, user.household_id)
     ensure_meal_plan_days(session, plan)
     days = session.exec(
         select(MealPlanDay).where(MealPlanDay.meal_plan_id == plan.id).order_by(MealPlanDay.day_date)
     ).all()
     menus = get_menus_for_household(session, user.household_id)
+    dish_types = get_dish_types(session, user.household_id)
+    unit_options = get_unit_options(session, user.household_id)
+    set_templates = get_meal_set_templates(session, user.household_id)
+    requirement_map = get_meal_set_requirements(session, [s.id for s in set_templates if s.id])
+    selection_rows = session.exec(
+        select(MealPlanSelection)
+        .join(MealPlanDay, MealPlanDay.id == MealPlanSelection.meal_plan_day_id)
+        .where(MealPlanDay.meal_plan_id == plan.id)
+    ).all()
+    selections: dict[tuple[int, MealSlot, int], list[int]] = {}
+    for sel in selection_rows:
+        key = (sel.meal_plan_day_id, sel.meal_slot.value, sel.dish_type_id)
+        selections.setdefault(key, []).append(sel.menu_id)
     return templates.TemplateResponse(
         request,
         "meal_plans/detail.html",
@@ -1112,7 +1423,16 @@ def meal_plan_detail(
             request,
             session,
             user,
-            {"plan": plan, "days": days, "menus": menus},
+            {
+                "plan": plan,
+                "days": days,
+                "menus": menus,
+                "dish_types": dish_types,
+                "unit_options": unit_options,
+                "set_templates": set_templates,
+                "requirement_map": requirement_map,
+                "selections": selections,
+            },
         ),
     )
 
@@ -1124,6 +1444,8 @@ async def update_meal_plan(
     day_dates: list[str] = Form(...),
     lunch_menu_ids: list[str] = Form([]),
     dinner_menu_ids: list[str] = Form([]),
+    lunch_set_ids: list[str] = Form([]),
+    dinner_set_ids: list[str] = Form([]),
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
@@ -1132,12 +1454,19 @@ async def update_meal_plan(
         flash(request, "Meal plan not found", "error")
         return RedirectResponse("/meal-plans", status_code=303)
     ensure_meal_plan_days(session, plan)
+    form_data = await request.form()
     days = session.exec(
         select(MealPlanDay).where(MealPlanDay.meal_plan_id == plan.id)
     ).all()
     day_lookup = {d.day_date: d for d in days}
-    valid_menu_ids = {m.id for m in get_menus_for_household(session, user.household_id)}
-    for day_str, lunch_id, dinner_id in zip(day_dates, lunch_menu_ids, dinner_menu_ids):
+    menus = get_menus_for_household(session, user.household_id)
+    valid_menu_ids = {m.id for m in menus}
+    menus_by_id = {m.id: m for m in menus if m.id}
+    set_templates = {s.id: s for s in get_meal_set_templates(session, user.household_id) if s.id}
+    requirement_map = get_meal_set_requirements(session, list(set_templates.keys()))
+    for idx, (day_str, lunch_id, dinner_id) in enumerate(
+        zip(day_dates, lunch_menu_ids, dinner_menu_ids)
+    ):
         try:
             parsed_day = date.fromisoformat(str(day_str))
         except ValueError:
@@ -1145,11 +1474,46 @@ async def update_meal_plan(
         d_obj = day_lookup.get(parsed_day)
         if not d_obj:
             continue
+        # clear existing selections for the day so we can rewrite
+        for old_sel in session.exec(
+            select(MealPlanSelection).where(MealPlanSelection.meal_plan_day_id == d_obj.id)
+        ).all():
+            session.delete(old_sel)
         lunch_val = int(lunch_id) if lunch_id else None
         dinner_val = int(dinner_id) if dinner_id else None
         d_obj.lunch_menu_id = lunch_val if not lunch_val or lunch_val in valid_menu_ids else None
         d_obj.dinner_menu_id = dinner_val if not dinner_val or dinner_val in valid_menu_ids else None
+        lunch_set_val = int(lunch_set_ids[idx]) if idx < len(lunch_set_ids) and lunch_set_ids[idx] else None
+        dinner_set_val = int(dinner_set_ids[idx]) if idx < len(dinner_set_ids) and dinner_set_ids[idx] else None
+        d_obj.lunch_set_template_id = lunch_set_val if lunch_set_val in set_templates else None
+        d_obj.dinner_set_template_id = dinner_set_val if dinner_set_val in set_templates else None
         session.add(d_obj)
+        # save structured selections per slot
+        for slot, set_val in (
+            (MealSlot.lunch, lunch_set_val),
+            (MealSlot.dinner, dinner_set_val),
+        ):
+            if not set_val or set_val not in requirement_map:
+                continue
+            for req in requirement_map[set_val]:
+                key = f"{slot.value}_selection-{idx}-{req.dish_type_id}"
+                values = form_data.getlist(key)
+                for position, raw_menu_id in enumerate(values[: req.required_count], start=1):
+                    try:
+                        menu_id_val = int(raw_menu_id)
+                    except (TypeError, ValueError):
+                        continue
+                    menu_obj = menus_by_id.get(menu_id_val)
+                    if not menu_obj or menu_obj.dish_type_id != req.dish_type_id:
+                        continue
+                    selection = MealPlanSelection(
+                        meal_plan_day_id=d_obj.id,
+                        meal_slot=slot,
+                        dish_type_id=req.dish_type_id,
+                        menu_id=menu_id_val,
+                        position=position,
+                    )
+                    session.add(selection)
     session.commit()
     flash(request, "Meal plan updated")
     return RedirectResponse(f"/meal-plans/{plan.id}", status_code=303)
@@ -1189,6 +1553,7 @@ def list_tasks(
     user: User = Depends(require_user),
 ):
     run_recurring_rules(session, user.household_id, user.id)
+    run_meal_plan_tasks(session, user.household_id, user.id)
     query = select(Task).where(Task.household_id == user.household_id)
     if status:
         query = query.where(Task.status == TaskStatus(status))
