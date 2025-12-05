@@ -60,13 +60,12 @@
 
 ### 3.1 技術スタック
 
-- **前提**：既存の家事ポイント Web アプリと同一スタックを利用する  
-  （以下、「現行スタック」と記述）
-  - Backend：現行スタック（例：Rust / Python / Go など実装済のもの）
-  - Frontend：現行スタック（例：SSR / SPA / htmx etc.）
-  - DB：現行の RDB（PostgreSQL / SQLite など）
+- **前提**：既存の FastAPI + SQLModel ベースの家事ポイント Web アプリと同一スタックを利用する
+  - Backend：Python 3.11 / FastAPI / SQLModel / Starlette セッション
+  - Frontend：FastAPI のテンプレート（Jinja2）＋既存の静的アセット
+  - DB：SQLModel 経由の RDB。デフォルトはリポジトリ直下の SQLite（`order_system.db`）、`DATABASE_URL` で PostgreSQL などに差し替え可。
 
-※ 具体的な技術名は実装済みプロジェクトに合わせて埋める。
+※ 既存アプリと同一の依存関係・フォルダ構成を踏襲し、拡張モジュールとして追加する。
 
 ### 3.2 対応環境
 
