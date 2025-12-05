@@ -55,13 +55,21 @@
     <div class="order-link"><a class="ghost" href="/tasks/{{ task.id }}/order">{{ strings['tasks.orderSheet'] }}</a> | <a class="ghost" href="/tasks/{{ task.id }}/edit">{{ strings['tasks.edit'] }}</a></div>
 </div>
 
-<div class="actions">
-    {% if task.status == 'open' %}
-    <form method="post" action="/tasks/{{ task.id }}/action"><input type="hidden" name="action" value="claim"><button type="submit">{{ strings['tasks.claim'] }}</button></form>
-    {% endif %}
-    {% if task.status in ['open','assigned'] %}
-    <form method="post" action="/tasks/{{ task.id }}/action"><input type="hidden" name="action" value="start"><button type="submit">{{ strings['tasks.start'] }}</button></form>
-    {% endif %}
+    <div class="actions">
+        {% if task.status == 'open' %}
+        <form method="post" action="/tasks/{{ task.id }}/action">
+            <input type="hidden" name="action" value="claim">
+            <label>{{ strings['tasks.points'] }}<input type="number" name="actual_points" value="{{ task.actual_points or task.proposed_points }}"></label>
+            <button type="submit">{{ strings['tasks.claim'] }}</button>
+        </form>
+        {% endif %}
+        {% if task.status in ['open','assigned'] %}
+        <form method="post" action="/tasks/{{ task.id }}/action">
+            <input type="hidden" name="action" value="start">
+            <label>{{ strings['tasks.points'] }}<input type="number" name="actual_points" value="{{ task.actual_points or task.proposed_points }}"></label>
+            <button type="submit">{{ strings['tasks.start'] }}</button>
+        </form>
+        {% endif %}
     {% if task.status in ['assigned','in_progress'] %}
     <form method="post" action="/tasks/{{ task.id }}/action">
         <input type="hidden" name="action" value="complete">

@@ -1,41 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Rewards</h1>
+<h1>{{ strings['rewards.heading'] }}</h1>
 <div class="grid">
     <div class="card">
-        <h3>Create reward template</h3>
+        <h3>{{ strings['rewards.create'] }}</h3>
         <form method="post" action="/rewards/templates">
-            <label>Title<input type="text" name="title" required></label>
-            <label>Cost points<input type="number" name="cost_points" required></label>
-            <label>Memo<textarea name="memo"></textarea></label>
-            <button type="submit">Save</button>
+            <label>{{ strings['rewards.title'] }}<input type="text" name="title" required></label>
+            <label>{{ strings['rewards.cost'] }}<input type="number" name="cost_points" required></label>
+            <label>{{ strings['rewards.memo'] }}<textarea name="memo"></textarea></label>
+            <button type="submit">{{ strings['rewards.save'] }}</button>
         </form>
     </div>
     <div class="card">
-        <h3>Reward templates</h3>
+        <h3>{{ strings['rewards.templates'] }}</h3>
         {% if templates %}
         <ul>
             {% for t in templates %}
             <li>
                 <strong>{{ t.title }}</strong> ({{ t.cost_points }} pts)
-                <form method="post" action="/rewards/templates/{{ t.id }}/delete" class="inline"><button type="submit">Delete</button></form>
+                <form method="post" action="/rewards/templates/{{ t.id }}/delete" class="inline"><button type="submit">{{ strings['rewards.delete'] }}</button></form>
                 <form method="post" action="/rewards/use" class="inline">
                     <input type="hidden" name="reward_template_id" value="{{ t.id }}">
                     <input type="hidden" name="title" value="{{ t.title }}">
                     <input type="hidden" name="cost_points" value="{{ t.cost_points }}">
-                    <button type="submit">Request</button>
+                    <button type="submit">{{ strings['rewards.request'] }}</button>
                 </form>
             </li>
             {% endfor %}
         </ul>
-        {% else %}<p>No templates yet.</p>{% endif %}
+        {% else %}<p class="muted">{{ strings['tasks.noTemplates'] }}</p>{% endif %}
     </div>
 </div>
 <div class="card">
-    <h3>Reward requests</h3>
+    <h3>{{ strings['rewards.list'] }}</h3>
     {% if reward_uses %}
     <table>
-        <thead><tr><th>Title</th><th>Cost</th><th>Status</th><th>Owner</th><th>Action</th></tr></thead>
+        <thead><tr><th>{{ strings['rewards.title'] }}</th><th>{{ strings['rewards.cost'] }}</th><th>{{ strings['rewards.status'] }}</th><th>{{ strings['rewards.owner'] }}</th><th>{{ strings['rewards.action'] }}</th></tr></thead>
         <tbody>
             {% for r in reward_uses %}
             <tr>
@@ -47,11 +47,11 @@
                     {% if r.status == 'pending' %}
                     <form method="post" action="/rewards/use/{{ r.id }}/action" class="inline">
                         <input type="hidden" name="action" value="approve">
-                        <button type="submit">Approve</button>
+                        <button type="submit">{{ strings['tasks.approve'] }}</button>
                     </form>
                     <form method="post" action="/rewards/use/{{ r.id }}/action" class="inline">
                         <input type="hidden" name="action" value="reject">
-                        <button type="submit">Reject</button>
+                        <button type="submit">{{ strings['tasks.cancel'] }}</button>
                     </form>
                     {% else %}--{% endif %}
                 </td>
@@ -60,7 +60,7 @@
         </tbody>
     </table>
     {% else %}
-    <p>No reward requests yet.</p>
+    <p class="muted">{{ strings['rewards.none'] }}</p>
     {% endif %}
 </div>
 {% endblock %}

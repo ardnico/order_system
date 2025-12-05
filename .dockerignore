@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+.env
+.git
+.gitignore
+venv/
+.envrc
+.eggs
+*.egg-info
+pip-cache/
+__pypackages__/
+ENV/
+*.sqlite3
