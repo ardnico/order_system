@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ strings['help.title'] }}</h1>
+<div class="card">
+    <p>{{ strings['help.overview'] }}</p>
+    <ol>
+        <li>{{ strings['help.step.signup'] }}</li>
+        <li>{{ strings['help.step.invite'] }}</li>
+        <li>{{ strings['help.step.tasks'] }}</li>
+        <li>{{ strings['help.step.rewards'] }}</li>
+        <li>{{ strings['help.step.mealPlans'] }}</li>
+        <li>{{ strings['help.step.settings'] }}</li>
+    </ol>
+</div>
+<div class="grid">
+    <div class="card">
+        <h3>{{ strings['help.section.heading'] }}</h3>
+        <ul>
+            <li>{{ strings['help.language'] }}</li>
+            <li>{{ strings['help.joinCode'] }}</li>
+            <li>{{ strings['help.tasksDetail'] }}</li>
+            <li>{{ strings['help.settingsDetail'] }}</li>
+            <li>{{ strings['help.support'] }}</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h3>{{ strings['settings.heading'] }}</h3>
+        <p class="muted">{{ strings['settings.householdName'] }} / {{ strings['settings.joinCode'] }}</p>
+        <p>{{ strings['settings.joinCode.description'] }}</p>
+        <p>{{ strings['settings.language'] }} · {{ strings['settings.theme'] }} · {{ strings['settings.font'] }}</p>
+    </div>
+</div>
+{% endblock %}
