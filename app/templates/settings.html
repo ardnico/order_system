@@ -6,6 +6,18 @@
         <h3>{{ strings['settings.language'] }}</h3>
         <form method="post" action="/settings/language">
             <label>
+                <span>{{ strings['settings.householdName'] }}</span>
+                <input type="text" name="household_name" value="{{ household.name if household else '' }}" required>
+            </label>
+            <label>
+                <span>{{ strings['settings.joinCode'] }}</span>
+                <div class="inline-form">
+                    <input type="text" name="join_code" value="{{ household.join_code if household else '' }}" placeholder="{{ strings['settings.joinCode.placeholder'] }}">
+                    <button type="submit" name="regenerate_join_code" value="1" class="ghost">{{ strings['settings.joinCode.regenerate'] }}</button>
+                </div>
+                <p class="muted">{{ strings['settings.joinCode.description'] }}</p>
+            </label>
+            <label>
                 <span>UI Language / 言語</span>
                 <select name="language">
                     <option value="en" {% if household and household.language=='en' %}selected{% endif %}>{{ strings['settings.language.en'] }}</option>
@@ -182,6 +194,23 @@
             <p class="muted">セットが未登録です</p>
             {% endfor %}
         </div>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h3>{{ strings['data.heading'] }}</h3>
+        <p class="muted">{{ strings['data.description'] }}</p>
+        <div class="actions">
+            <a class="button" href="/data/export">{{ strings['data.export'] }}</a>
+            <a class="ghost" href="/ingredients">{{ strings['ingredients.heading'] }}</a>
+        </div>
+        <form method="post" action="/data/import" enctype="multipart/form-data" class="stack">
+            <label class="file-field">{{ strings['data.file'] }}
+                <input type="file" name="file" accept="application/json" required>
+            </label>
+            <button type="submit">{{ strings['data.import'] }}</button>
+        </form>
     </div>
 </div>
 {% endblock %}
