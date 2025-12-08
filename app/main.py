@@ -365,7 +365,7 @@ def get_language(request: Request, session: Session, user: Optional[User] = None
         household = session.get(Household, user.household_id)
         if household:
             lang = household.language
-    lang = lang or "en"
+    lang = lang or "ja"
     request.session["language"] = lang
     return lang
 
@@ -1117,11 +1117,12 @@ async def register(
     household_id: Optional[int] = Form(None),
     session: Session = Depends(get_session),
 ):
+    join_code = join_code.strip() if join_code else None
     if create_household:
         if not household_name:
             flash(request, "Household name required", "error")
             return RedirectResponse("/register", status_code=303)
-        code = join_code or secrets.token_hex(3)
+        code = (join_code or secrets.token_hex(3)).lower()
         household = Household(name=household_name, join_code=code)
         session.add(household)
         session.commit()
@@ -1136,7 +1137,9 @@ async def register(
         if not household:
             flash(request, "Household not found", "error")
             return RedirectResponse("/register", status_code=303)
-        if household.join_code and join_code != household.join_code:
+        stored_code = household.join_code.lower().strip() if household.join_code else None
+        provided_code = join_code.lower().strip() if join_code else None
+        if stored_code and provided_code != stored_code:
             flash(request, "Invalid join code", "error")
             return RedirectResponse("/register", status_code=303)
         ensure_household_defaults(session, household.id)

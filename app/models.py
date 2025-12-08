@@ -35,7 +35,7 @@ class Household(SQLModel, table=True):
     name: str
     join_code: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    language: str = Field(default="en")
+    language: str = Field(default="ja")
     theme: str = Field(default="sakura")
     font: str = Field(default="modern")
 
