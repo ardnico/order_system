@@ -196,4 +196,21 @@
         </div>
     </div>
 </div>
+
+<div class="grid">
+    <div class="card">
+        <h3>{{ strings['data.heading'] }}</h3>
+        <p class="muted">{{ strings['data.description'] }}</p>
+        <div class="actions">
+            <a class="button" href="/data/export">{{ strings['data.export'] }}</a>
+            <a class="ghost" href="/ingredients">{{ strings['ingredients.heading'] }}</a>
+        </div>
+        <form method="post" action="/data/import" enctype="multipart/form-data" class="stack">
+            <label class="file-field">{{ strings['data.file'] }}
+                <input type="file" name="file" accept="application/json" required>
+            </label>
+            <button type="submit">{{ strings['data.import'] }}</button>
+        </form>
+    </div>
+</div>
 {% endblock %}

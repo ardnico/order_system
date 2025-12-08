@@ -1,3 +1,4 @@
+import json
 import os
 import secrets
 from datetime import date, datetime, time, timedelta
@@ -6,7 +7,7 @@ from typing import Optional
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape
@@ -81,6 +82,7 @@ UI_STRINGS = {
         "nav.mealPlans": "Meal Plans",
         "nav.menus": "Menus",
         "nav.settings": "Settings",
+        "nav.ingredients": "Ingredients",
         "nav.help": "How to use",
         "nav.logout": "Logout",
         "auth.login.title": "Login",
@@ -243,6 +245,36 @@ UI_STRINGS = {
         "help.settingsDetail": "Use Settings to align the household name, join code, language, theme, and font so everyone sees the same defaults.",
         "help.tasksDetail": "Task templates speed up recurring chores; assign or claim tasks from the Tasks page.",
         "help.support": "Need help? Check the navigation for this page anytime.",
+        "ingredients.heading": "Ingredients",
+        "ingredients.subhead": "Keep a reusable pantry list for menus and meal plans.",
+        "ingredients.name": "Ingredient name",
+        "ingredients.unit": "Unit",
+        "ingredients.create": "Add ingredient",
+        "ingredients.delete": "Delete",
+        "ingredients.deleteBlocked": "Cannot delete while used in menus",
+        "ingredients.empty": "No ingredients yet",
+        "data.heading": "Data", 
+        "data.export": "Export data",
+        "data.import": "Import data",
+        "data.description": "Download a JSON backup of household settings and menus, or import one to restore.",
+        "data.file": "Choose JSON file",
+        "data.importSuccess": "Data imported",
+        "data.importError": "Import failed: invalid file",
+        "help.hero": "Cozy guidebook",
+        "help.cta.register": "Register",
+        "help.cta.login": "Login",
+        "help.ribbon.tasks": "Tasks & points",
+        "help.ribbon.meals": "Meals & ingredients",
+        "help.ribbon.data": "Backups",
+        "help.quickstart.title": "Quick start",
+        "help.quickstart.invite": "Invite with the join code",
+        "help.quickstart.customize": "Customize the theme",
+        "help.quickstart.menus": "Save favorite menus",
+        "help.quickstart.export": "Export household data",
+        "help.sections.tasks": "Create templates for chores, claim tasks, and approve completions to award points.",
+        "help.sections.rewards": "Set rewards and approve requests when someone spends points.",
+        "help.sections.meals": "Plan meals with menus, dish types, and ingredient totals.",
+        "help.sections.data": "Use export/import as a safety net before big edits.",
     },
     "ja": {
         "brand": "おうちタスクボード",
@@ -253,6 +285,7 @@ UI_STRINGS = {
         "nav.points": "ポイント履歴",
         "nav.mealPlans": "献立",
         "nav.menus": "メニュー",
+        "nav.ingredients": "材料リスト",
         "nav.settings": "設定",
         "nav.help": "使い方",
         "nav.logout": "ログアウト",
@@ -416,6 +449,36 @@ UI_STRINGS = {
         "help.settingsDetail": "設定ページで世帯名、参加コード、言語、テーマ、フォントを整えると全員に反映されます。",
         "help.tasksDetail": "タスクテンプレートで定番の家事を素早く作成し、タスクページで担当や受注を管理できます。",
         "help.support": "困ったときはいつでもナビゲーションの「使い方」からこのページを開けます。",
+        "ingredients.heading": "材料リスト",
+        "ingredients.subhead": "メニューや献立で使い回せるパントリーを整えましょう。",
+        "ingredients.name": "材料名",
+        "ingredients.unit": "単位",
+        "ingredients.create": "材料を追加",
+        "ingredients.delete": "削除",
+        "ingredients.deleteBlocked": "メニューで使われているため削除できません",
+        "ingredients.empty": "まだ材料がありません",
+        "data.heading": "データ",
+        "data.export": "データを書き出す",
+        "data.import": "データを取り込む",
+        "data.description": "世帯の設定やメニューをJSONでバックアップし、必要なときに復元できます。",
+        "data.file": "JSONファイルを選択",
+        "data.importSuccess": "データを取り込みました",
+        "data.importError": "ファイル形式が正しくありません",
+        "help.hero": "たのしいガイド",
+        "help.cta.register": "新規登録",
+        "help.cta.login": "ログイン",
+        "help.ribbon.tasks": "タスクとポイント",
+        "help.ribbon.meals": "献立と材料",
+        "help.ribbon.data": "バックアップ",
+        "help.quickstart.title": "かんたん3ステップ",
+        "help.quickstart.invite": "参加コードをシェア",
+        "help.quickstart.customize": "テーマをおそろいに",
+        "help.quickstart.menus": "お気に入りメニューを登録",
+        "help.quickstart.export": "データを書き出して安心",
+        "help.sections.tasks": "テンプレートで家事を作り、受注・承認でポイントを回します。",
+        "help.sections.rewards": "ポイントでごほうびを申請し、承認してあげましょう。",
+        "help.sections.meals": "料理タイプやセットを活用して献立と材料合計をチェック。",
+        "help.sections.data": "大きな変更前にエクスポートしておくと安心です。",
     },
 }
 
@@ -643,6 +706,24 @@ def get_unit_options(session: Session, household_id: int):
     ).all()
 
 
+def get_ingredients(session: Session, household_id: int):
+    return session.exec(
+        select(Ingredient)
+        .where(Ingredient.household_id == household_id)
+        .order_by(Ingredient.name)
+    ).all()
+
+
+def ingredient_usage_counts(session: Session, household_id: int) -> dict[int, int]:
+    rows = session.exec(
+        select(MenuIngredient.ingredient_id, func.count())
+        .join(Menu, Menu.id == MenuIngredient.menu_id)
+        .where(Menu.household_id == household_id)
+        .group_by(MenuIngredient.ingredient_id)
+    ).all()
+    return {ing_id: count for ing_id, count in rows}
+
+
 def get_task_categories(session: Session, household_id: int):
     return session.exec(
         select(TaskCategory)
@@ -826,13 +907,22 @@ def get_menu_ingredients_map(session: Session, menu_ids: list[int]):
     if not menu_ids:
         return {}
     rows = session.exec(
-        select(MenuIngredient.menu_id, Ingredient.name, MenuIngredient.quantity, Ingredient.unit)
+        select(
+            MenuIngredient.menu_id,
+            Ingredient.name,
+            MenuIngredient.quantity,
+            Ingredient.unit,
+            UnitOption.name,
+        )
         .join(Ingredient, Ingredient.id == MenuIngredient.ingredient_id)
+        .join(UnitOption, UnitOption.id == MenuIngredient.unit_option_id, isouter=True)
         .where(MenuIngredient.menu_id.in_(menu_ids))
     ).all()
     mapping: dict[int, list[dict]] = {}
-    for menu_id, name, qty, unit in rows:
-        mapping.setdefault(menu_id, []).append({"name": name, "quantity": qty, "unit": unit})
+    for menu_id, name, qty, unit, unit_option in rows:
+        mapping.setdefault(menu_id, []).append(
+            {"name": name, "quantity": qty, "unit": unit_option or unit}
+        )
     return mapping
 
 
@@ -925,6 +1015,337 @@ def aggregate_meal_plan_ingredients(session: Session, plan: MealPlan):
     ]
 
 
+def export_household_data(session: Session, household_id: int) -> dict:
+    unit_options = get_unit_options(session, household_id)
+    dish_types = get_dish_types(session, household_id)
+    ingredients = get_ingredients(session, household_id)
+    menus = get_menus_for_household(session, household_id)
+    dish_type_lookup = {d.id: d.name for d in dish_types}
+    menu_payload: list[dict] = []
+    for menu in menus:
+        ingredient_rows = session.exec(
+            select(
+                Ingredient.name,
+                MenuIngredient.quantity,
+                Ingredient.unit,
+                UnitOption.name,
+            )
+            .join(MenuIngredient, MenuIngredient.ingredient_id == Ingredient.id)
+            .join(UnitOption, UnitOption.id == MenuIngredient.unit_option_id, isouter=True)
+            .where(MenuIngredient.menu_id == menu.id)
+        ).all()
+        menu_payload.append(
+            {
+                "name": menu.name,
+                "description": menu.description,
+                "dish_type": session.get(DishType, menu.dish_type_id).name
+                if menu.dish_type_id
+                else None,
+                "ingredients": [
+                    {
+                        "name": name,
+                        "quantity": float(qty or 0),
+                        "unit": unit_opt or unit,
+                    }
+                    for name, qty, unit, unit_opt in ingredient_rows
+                ],
+            }
+        )
+    meal_sets = get_meal_set_templates(session, household_id)
+    meal_set_requirements = get_meal_set_requirements(session, [s.id for s in meal_sets if s.id])
+    task_templates = session.exec(
+        select(TaskTemplate).where(TaskTemplate.household_id == household_id)
+    ).all()
+    recurring_rules = session.exec(
+        select(RecurringTaskRule).where(RecurringTaskRule.household_id == household_id)
+    ).all()
+    reward_templates = session.exec(
+        select(RewardTemplate).where(RewardTemplate.household_id == household_id)
+    ).all()
+    categories = get_task_categories(session, household_id)
+    return {
+        "meta": {"version": 1, "exported_at": datetime.utcnow().isoformat()},
+        "unit_options": [{"name": u.name, "active": u.active} for u in unit_options],
+        "dish_types": [{"name": d.name, "description": d.description} for d in dish_types],
+        "ingredients": [{"name": i.name, "unit": i.unit} for i in ingredients],
+        "menus": menu_payload,
+        "meal_sets": [
+            {
+                "name": s.name,
+                "description": s.description,
+                "requirements": [
+                    {
+                        "dish_type": dish_type_lookup.get(r.dish_type_id, r.dish_type_id),
+                        "required_count": r.required_count,
+                    }
+                    for r in meal_set_requirements.get(s.id, [])
+                ],
+            }
+            for s in meal_sets
+        ],
+        "task_categories": [c.name for c in categories],
+        "task_templates": [
+            {
+                "title": t.title,
+                "default_category": t.default_category,
+                "default_points": t.default_points,
+                "relative_due_days": t.relative_due_days,
+                "memo": t.memo,
+                "instructions": t.instructions,
+            }
+            for t in task_templates
+        ],
+        "recurring_rules": [
+            {
+                "template_title": session.get(TaskTemplate, r.task_template_id).title
+                if r.task_template_id
+                else None,
+                "frequency": r.frequency.value,
+                "next_run_date": r.next_run_date.isoformat(),
+            }
+            for r in recurring_rules
+            if session.get(TaskTemplate, r.task_template_id)
+        ],
+        "reward_templates": [
+            {"title": rt.title, "cost_points": rt.cost_points, "memo": rt.memo}
+            for rt in reward_templates
+        ],
+    }
+
+
+def import_household_data(session: Session, household_id: int, payload: dict):
+    if not isinstance(payload, dict):
+        raise ValueError("Payload must be a dict")
+    unit_option_map: dict[str, UnitOption] = {}
+    for entry in payload.get("unit_options", []):
+        name = str(entry.get("name", "")).strip()
+        if not name:
+            continue
+        existing = session.exec(
+            select(UnitOption).where(UnitOption.household_id == household_id, UnitOption.name == name)
+        ).first()
+        if not existing:
+            existing = UnitOption(household_id=household_id, name=name, active=bool(entry.get("active", True)))
+        else:
+            existing.active = bool(entry.get("active", True))
+        session.add(existing)
+        session.commit()
+        session.refresh(existing)
+        unit_option_map[name] = existing
+
+    dish_type_map: dict[str, DishType] = {}
+    for entry in payload.get("dish_types", []):
+        name = str(entry.get("name", "")).strip()
+        if not name:
+            continue
+        existing = session.exec(
+            select(DishType).where(DishType.household_id == household_id, DishType.name == name)
+        ).first()
+        if not existing:
+            existing = DishType(
+                household_id=household_id, name=name, description=entry.get("description")
+            )
+        else:
+            existing.description = entry.get("description")
+        session.add(existing)
+        session.commit()
+        session.refresh(existing)
+        dish_type_map[name] = existing
+
+    ingredient_map: dict[tuple[str, Optional[str]], Ingredient] = {}
+    for entry in payload.get("ingredients", []):
+        name = str(entry.get("name", "")).strip()
+        if not name:
+            continue
+        unit_val = entry.get("unit") or None
+        ingredient = get_or_create_ingredient(session, household_id, name, unit_val)
+        ingredient_map[(name, unit_val)] = ingredient
+
+    for menu_entry in payload.get("menus", []):
+        menu_name = str(menu_entry.get("name", "")).strip()
+        if not menu_name:
+            continue
+        menu = session.exec(
+            select(Menu).where(Menu.household_id == household_id, Menu.name == menu_name)
+        ).first()
+        dish_type_id = None
+        dish_type_name = menu_entry.get("dish_type")
+        if dish_type_name and dish_type_name in dish_type_map:
+            dish_type_id = dish_type_map[dish_type_name].id
+        if not menu:
+            menu = Menu(
+                household_id=household_id,
+                name=menu_name,
+                description=menu_entry.get("description"),
+                dish_type_id=dish_type_id,
+            )
+            session.add(menu)
+            session.commit()
+            session.refresh(menu)
+        else:
+            menu.description = menu_entry.get("description")
+            menu.dish_type_id = dish_type_id
+            session.add(menu)
+            session.commit()
+        ingredient_names: list[str] = []
+        ingredient_quantities: list[str] = []
+        ingredient_units: list[str] = []
+        for ing in menu_entry.get("ingredients", []):
+            ing_name = str(ing.get("name", "")).strip()
+            if not ing_name:
+                continue
+            ingredient_names.append(ing_name)
+            ingredient_quantities.append(str(ing.get("quantity", 0)))
+            ingredient_units.append(str(ing.get("unit", "")))
+        save_menu_ingredients(
+            session,
+            menu,
+            ingredient_names,
+            ingredient_quantities,
+            ingredient_units,
+            household_id,
+        )
+
+    requirement_lookup: dict[int, list[dict]] = {}
+    for set_entry in payload.get("meal_sets", []):
+        name = str(set_entry.get("name", "")).strip()
+        if not name:
+            continue
+        template = session.exec(
+            select(MealSetTemplate).where(
+                MealSetTemplate.household_id == household_id, MealSetTemplate.name == name
+            )
+        ).first()
+        if not template:
+            template = MealSetTemplate(
+                household_id=household_id,
+                name=name,
+                description=set_entry.get("description"),
+            )
+            session.add(template)
+            session.commit()
+            session.refresh(template)
+        else:
+            template.description = set_entry.get("description")
+            session.add(template)
+            session.commit()
+        requirement_lookup[template.id] = set_entry.get("requirements", [])
+
+    for template_id, reqs in requirement_lookup.items():
+        counts: dict[int, int] = {}
+        for req in reqs:
+            dish_key = req.get("dish_type")
+            dish_type_id = None
+            if isinstance(dish_key, str) and dish_key in dish_type_map:
+                dish_type_id = dish_type_map[dish_key].id
+            elif isinstance(dish_key, int):
+                existing = session.get(DishType, dish_key)
+                if existing and existing.household_id == household_id:
+                    dish_type_id = existing.id
+            if dish_type_id is None:
+                continue
+            try:
+                count_val = int(req.get("required_count", 0))
+            except (TypeError, ValueError):
+                continue
+            counts[dish_type_id] = count_val
+        set_meal_set_requirements(session, template_id, counts)
+
+    for name in payload.get("task_categories", []):
+        cleaned = str(name).strip()
+        if not cleaned:
+            continue
+        existing = session.exec(
+            select(TaskCategory).where(TaskCategory.household_id == household_id, TaskCategory.name == cleaned)
+        ).first()
+        if not existing:
+            session.add(TaskCategory(household_id=household_id, name=cleaned))
+    session.commit()
+
+    template_map: dict[str, TaskTemplate] = {}
+    for entry in payload.get("task_templates", []):
+        title = str(entry.get("title", "")).strip()
+        if not title:
+            continue
+        template = session.exec(
+            select(TaskTemplate).where(TaskTemplate.household_id == household_id, TaskTemplate.title == title)
+        ).first()
+        if not template:
+            template = TaskTemplate(
+                household_id=household_id,
+                title=title,
+                default_category=entry.get("default_category"),
+                default_points=entry.get("default_points"),
+                relative_due_days=entry.get("relative_due_days"),
+                memo=entry.get("memo"),
+                instructions=entry.get("instructions"),
+            )
+            session.add(template)
+        else:
+            template.default_category = entry.get("default_category")
+            template.default_points = entry.get("default_points")
+            template.relative_due_days = entry.get("relative_due_days")
+            template.memo = entry.get("memo")
+            template.instructions = entry.get("instructions")
+            session.add(template)
+        session.commit()
+        session.refresh(template)
+        template_map[title] = template
+
+    for rule in payload.get("recurring_rules", []):
+        title = rule.get("template_title")
+        if not title or title not in template_map:
+            continue
+        try:
+            next_date = date.fromisoformat(rule.get("next_run_date")) if rule.get("next_run_date") else date.today()
+        except (TypeError, ValueError):
+            next_date = date.today()
+        freq_raw = rule.get("frequency", "weekly")
+        try:
+            freq_val = RecurringFrequency(freq_raw)
+        except ValueError:
+            freq_val = RecurringFrequency.weekly
+        existing = session.exec(
+            select(RecurringTaskRule).where(
+                RecurringTaskRule.household_id == household_id,
+                RecurringTaskRule.task_template_id == template_map[title].id,
+                RecurringTaskRule.frequency == freq_val,
+            )
+        ).first()
+        if not existing:
+            existing = RecurringTaskRule(
+                household_id=household_id,
+                task_template_id=template_map[title].id,
+                frequency=freq_val,
+                next_run_date=next_date,
+            )
+        else:
+            existing.frequency = freq_val
+            existing.next_run_date = next_date
+        session.add(existing)
+    session.commit()
+
+    for rt in payload.get("reward_templates", []):
+        title = str(rt.get("title", "")).strip()
+        if not title:
+            continue
+        existing = session.exec(
+            select(RewardTemplate).where(RewardTemplate.household_id == household_id, RewardTemplate.title == title)
+        ).first()
+        if not existing:
+            existing = RewardTemplate(
+                household_id=household_id,
+                title=title,
+                cost_points=rt.get("cost_points", 0),
+                memo=rt.get("memo"),
+            )
+        else:
+            existing.cost_points = rt.get("cost_points", existing.cost_points)
+            existing.memo = rt.get("memo")
+        session.add(existing)
+    session.commit()
+
+
 def save_menu_ingredients(
     session: Session,
     menu: Menu,
@@ -937,6 +1358,7 @@ def save_menu_ingredients(
     for entry in existing:
         session.delete(entry)
     session.commit()
+    unit_lookup = {u.name: u for u in get_unit_options(session, household_id)}
     for name, qty_raw, unit in zip(names, quantities, units):
         cleaned = name.strip()
         if not cleaned:
@@ -945,8 +1367,22 @@ def save_menu_ingredients(
             qty = float(qty_raw)
         except (TypeError, ValueError):
             qty = 0
-        ingredient = get_or_create_ingredient(session, household_id, cleaned, unit.strip() or None)
-        session.add(MenuIngredient(menu_id=menu.id, ingredient_id=ingredient.id, quantity=qty))
+        unit_clean = unit.strip() if unit else ""
+        unit_option = unit_lookup.get(unit_clean) if unit_clean else None
+        ingredient = get_or_create_ingredient(
+            session,
+            household_id,
+            cleaned,
+            unit_option.name if unit_option else (unit_clean or None),
+        )
+        session.add(
+            MenuIngredient(
+                menu_id=menu.id,
+                ingredient_id=ingredient.id,
+                quantity=qty,
+                unit_option_id=unit_option.id if unit_option else None,
+            )
+        )
     session.commit()
 
 
@@ -1725,6 +2161,108 @@ async def toggle_recurring_rule(
     return RedirectResponse("/settings", status_code=303)
 
 
+@app.get("/ingredients", response_class=HTMLResponse)
+def list_ingredients(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    ensure_meal_seed_data(session, user.household_id)
+    ingredients = get_ingredients(session, user.household_id)
+    unit_options = get_unit_options(session, user.household_id)
+    usage = ingredient_usage_counts(session, user.household_id)
+    return templates.TemplateResponse(
+        request,
+        "ingredients.html",
+        build_context(
+            request,
+            session,
+            user,
+            {
+                "ingredients": ingredients,
+                "unit_options": unit_options,
+                "usage": usage,
+            },
+        ),
+    )
+
+
+@app.post("/ingredients")
+async def create_ingredient(
+    request: Request,
+    name: str = Form(...),
+    unit: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    ensure_meal_seed_data(session, user.household_id)
+    cleaned = name.strip()
+    if not cleaned:
+        flash(request, "Name required", "error")
+        return RedirectResponse("/ingredients", status_code=303)
+    unit_val = unit.strip() if unit else None
+    get_or_create_ingredient(session, user.household_id, cleaned, unit_val)
+    flash(request, "Ingredient saved")
+    return RedirectResponse("/ingredients", status_code=303)
+
+
+@app.post("/ingredients/{ingredient_id}/delete")
+async def delete_ingredient(
+    request: Request,
+    ingredient_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    ingredient = session.get(Ingredient, ingredient_id)
+    if not ingredient or ingredient.household_id != user.household_id:
+        flash(request, "Ingredient not found", "error")
+        return RedirectResponse("/ingredients", status_code=303)
+    usage = ingredient_usage_counts(session, user.household_id)
+    if usage.get(ingredient.id, 0) > 0:
+        flash(request, get_strings(get_language(request, session, user))["ingredients.deleteBlocked"], "error")
+        return RedirectResponse("/ingredients", status_code=303)
+    session.delete(ingredient)
+    session.commit()
+    flash(request, "Ingredient deleted")
+    return RedirectResponse("/ingredients", status_code=303)
+
+
+@app.get("/data/export")
+def export_data(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    ensure_household_defaults(session, user.household_id)
+    payload = export_household_data(session, user.household_id)
+    filename = f"household-{user.household_id}-export.json"
+    return JSONResponse(
+        payload,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=\"{filename}\""},
+    )
+
+
+@app.post("/data/import")
+async def import_data(
+    request: Request,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    ensure_household_defaults(session, user.household_id)
+    strings = get_strings(get_language(request, session, user))
+    try:
+        content = await file.read()
+        payload = json.loads(content.decode("utf-8"))
+        import_household_data(session, user.household_id, payload)
+    except Exception:
+        flash(request, strings["data.importError"], "error")
+        return RedirectResponse("/settings", status_code=303)
+    flash(request, strings["data.importSuccess"])
+    return RedirectResponse("/settings", status_code=303)
+
+
 @app.get("/menus", response_class=HTMLResponse)
 def list_menus(
     request: Request,
@@ -1736,6 +2274,7 @@ def list_menus(
     ingredients_map = get_menu_ingredients_map(session, [m.id for m in menus if m.id])
     dish_types = get_dish_types(session, user.household_id)
     unit_options = get_unit_options(session, user.household_id)
+    ingredient_options = get_ingredients(session, user.household_id)
     return templates.TemplateResponse(
         request,
         "menus/list.html",
@@ -1748,6 +2287,7 @@ def list_menus(
                 "ingredients_map": ingredients_map,
                 "dish_types": dish_types,
                 "unit_options": unit_options,
+                "ingredient_options": ingredient_options,
             },
         ),
     )
@@ -1808,6 +2348,7 @@ def edit_menu_page(
     ingredients = get_menu_ingredients_map(session, [menu.id]).get(menu.id, [])
     dish_types = get_dish_types(session, user.household_id)
     unit_options = get_unit_options(session, user.household_id)
+    ingredient_options = get_ingredients(session, user.household_id)
     return templates.TemplateResponse(
         request,
         "menus/edit.html",
@@ -1820,6 +2361,7 @@ def edit_menu_page(
                 "ingredients": ingredients,
                 "dish_types": dish_types,
                 "unit_options": unit_options,
+                "ingredient_options": ingredient_options,
             },
         ),
     )

@@ -1,20 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ strings['help.title'] }}</h1>
-<div class="card">
-    <p>{{ strings['help.overview'] }}</p>
-    <ol>
-        <li>{{ strings['help.step.signup'] }}</li>
-        <li>{{ strings['help.step.invite'] }}</li>
-        <li>{{ strings['help.step.tasks'] }}</li>
-        <li>{{ strings['help.step.rewards'] }}</li>
-        <li>{{ strings['help.step.mealPlans'] }}</li>
-        <li>{{ strings['help.step.settings'] }}</li>
-    </ol>
+<section class="hero soft-card gradient">
+    <div class="hero-text">
+        <p class="eyebrow">{{ strings['help.hero'] }}</p>
+        <h1>{{ strings['help.title'] }}</h1>
+        <p class="muted">{{ strings['help.overview'] }}</p>
+        <div class="actions">
+            <a class="button" href="/register">{{ strings['help.cta.register'] }}</a>
+            <a class="ghost" href="/login">{{ strings['help.cta.login'] }}</a>
+        </div>
+        <div class="ribbon-row">
+            <span class="pill">💫 {{ strings['help.ribbon.tasks'] }}</span>
+            <span class="pill">🍲 {{ strings['help.ribbon.meals'] }}</span>
+            <span class="pill">🧺 {{ strings['help.ribbon.data'] }}</span>
+        </div>
+    </div>
+</section>
+
+<div class="grid">
+    <div class="card pop">
+        <h2>{{ strings['help.quickstart.title'] }}</h2>
+        <ol class="cute-list">
+            <li>1. {{ strings['help.step.signup'] }}</li>
+            <li>2. {{ strings['help.quickstart.invite'] }}</li>
+            <li>3. {{ strings['help.quickstart.customize'] }}</li>
+        </ol>
+        <p class="muted">{{ strings['help.step.settings'] }}</p>
+    </div>
+    <div class="card">
+        <h3>🍱 {{ strings['help.quickstart.menus'] }}</h3>
+        <p>{{ strings['help.step.mealPlans'] }}</p>
+        <a class="ghost" href="/menus">{{ strings['nav.menus'] }}</a>
+    </div>
+    <div class="card">
+        <h3>🧁 {{ strings['help.quickstart.export'] }}</h3>
+        <p>{{ strings['help.sections.data'] }}</p>
+        <a class="ghost" href="/settings">{{ strings['nav.settings'] }}</a>
+    </div>
 </div>
+
 <div class="grid">
     <div class="card">
-        <h3>{{ strings['help.section.heading'] }}</h3>
+        <h3>✅ {{ strings['help.section.heading'] }}</h3>
         <ul>
             <li>{{ strings['help.language'] }}</li>
             <li>{{ strings['help.joinCode'] }}</li>
@@ -23,11 +50,13 @@
             <li>{{ strings['help.support'] }}</li>
         </ul>
     </div>
-    <div class="card">
-        <h3>{{ strings['settings.heading'] }}</h3>
-        <p class="muted">{{ strings['settings.householdName'] }} / {{ strings['settings.joinCode'] }}</p>
-        <p>{{ strings['settings.joinCode.description'] }}</p>
-        <p>{{ strings['settings.language'] }} · {{ strings['settings.theme'] }} · {{ strings['settings.font'] }}</p>
+    <div class="card soft-card">
+        <h3>✨ {{ strings['help.ribbon.tasks'] }}</h3>
+        <p>{{ strings['help.sections.tasks'] }}</p>
+        <h3>🎁 {{ strings['rewards.heading'] }}</h3>
+        <p>{{ strings['help.sections.rewards'] }}</p>
+        <h3>🍙 {{ strings['help.ribbon.meals'] }}</h3>
+        <p>{{ strings['help.sections.meals'] }}</p>
     </div>
 </div>
 {% endblock %}

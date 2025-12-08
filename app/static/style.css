@@ -161,6 +161,17 @@ main { position: relative; z-index: 1; }
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
 }
+.card.pop { border: 2px dashed var(--accent); box-shadow: 0 12px 30px rgba(244, 114, 182, 0.18); }
+.soft-card { background: linear-gradient(180deg, rgba(255,255,255,0.85), #fff); }
+.gradient { background: linear-gradient(135deg, rgba(244,114,182,0.16), rgba(167,139,250,0.18)); }
+.hero { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.hero-text h1 { margin: 6px 0; font-size: 28px; }
+.eyebrow { text-transform: uppercase; letter-spacing: 1px; font-weight: 800; color: var(--accent); margin: 0; }
+.ribbon-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.cute-list { list-style: none; padding: 0; margin: 0; }
+.cute-list li { background: #fff; padding: 8px 12px; border-radius: 12px; margin-bottom: 6px; box-shadow: var(--shadow); }
+.pill { background: rgba(255, 255, 255, 0.85); }
+.file-field input[type="file"] { padding: 6px; background: #fff; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }

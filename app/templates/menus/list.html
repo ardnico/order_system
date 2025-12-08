@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
+<datalist id="ingredient-options">
+    {% for ing in ingredient_options %}
+    <option value="{{ ing.name }}"></option>
+    {% endfor %}
+</datalist>
 <h1>{{ strings["menus.heading"] }}</h1>
 <div class="grid">
     <div class="card">
         <h2>{{ strings["menus.new"] }}</h2>
         <form method="post" action="/menus">
             <label>{{ strings["menus.name"] }}
-                <input name="name" required>
+                <input name="name" required list="ingredient-options" autocomplete="off">
             </label>
             <label>{{ strings["menus.description"] }}
                 <textarea name="description"></textarea>
@@ -28,7 +33,7 @@
                 </tr>
                 {% for i in range(5) %}
                 <tr>
-                    <td><input name="ingredient_names"></td>
+                    <td><input name="ingredient_names" list="ingredient-options" autocomplete="off"></td>
                     <td><input name="ingredient_quantities" type="number" step="0.1"></td>
                     <td>
                         <select name="ingredient_units">
