@@ -89,6 +89,21 @@ header .brand {
   color: var(--accent);
 }
 
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.help-link {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.help-link:hover {
+  text-decoration: underline;
+}
+
 .nav-container {
   display: flex;
   align-items: center;

@@ -6,6 +6,18 @@
         <h3>{{ strings['settings.language'] }}</h3>
         <form method="post" action="/settings/language">
             <label>
+                <span>{{ strings['settings.householdName'] }}</span>
+                <input type="text" name="household_name" value="{{ household.name if household else '' }}" required>
+            </label>
+            <label>
+                <span>{{ strings['settings.joinCode'] }}</span>
+                <div class="inline-form">
+                    <input type="text" name="join_code" value="{{ household.join_code if household else '' }}" placeholder="{{ strings['settings.joinCode.placeholder'] }}">
+                    <button type="submit" name="regenerate_join_code" value="1" class="ghost">{{ strings['settings.joinCode.regenerate'] }}</button>
+                </div>
+                <p class="muted">{{ strings['settings.joinCode.description'] }}</p>
+            </label>
+            <label>
                 <span>UI Language / 言語</span>
                 <select name="language">
                     <option value="en" {% if household and household.language=='en' %}selected{% endif %}>{{ strings['settings.language.en'] }}</option>

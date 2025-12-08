@@ -8,7 +8,10 @@
 </head>
 <body class="theme-{{ theme }} bg-cute" style="--font-family: {{ font_stack|safe }};">
 <header>
-    <div class="brand">{{ strings["brand"] }}</div>
+    <div class="brand-row">
+        <div class="brand">{{ strings["brand"] }}</div>
+        <a class="help-link" href="/help">{{ strings["nav.help"] }}</a>
+    </div>
     {% if user %}
     <div class="nav-container">
         <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">☰ メニュー</button>
@@ -21,6 +24,7 @@
             <a href="/meal-plans">{{ strings["nav.mealPlans"] }}</a>
             <a href="/menus">{{ strings["nav.menus"] }}</a>
             <a href="/settings">{{ strings["nav.settings"] }}</a>
+            <a href="/help">{{ strings["nav.help"] }}</a>
             <form action="/logout" method="post" class="logout-form">
                 <button type="submit">{{ strings["nav.logout"] }} ({{ user.display_name }})</button>
             </form>
