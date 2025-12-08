@@ -6,21 +6,36 @@
     <title>{{ title or "Chore Board" }}</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="theme-{{ theme }} bg-cute">
+<body class="theme-{{ theme }} bg-cute" style="--font-family: {{ font_stack|safe }};">
 <header>
     <div class="brand">{{ strings["brand"] }}</div>
     {% if user %}
-    <nav>
-        <a href="/">{{ strings["nav.dashboard"] }}</a>
-        <a href="/tasks">{{ strings["nav.tasks"] }}</a>
-        <a href="/templates/tasks">{{ strings["nav.templates"] }}</a>
-        <a href="/rewards">{{ strings["nav.rewards"] }}</a>
-        <a href="/points">{{ strings["nav.points"] }}</a>
-        <a href="/settings">{{ strings["nav.settings"] }}</a>
-        <form action="/logout" method="post" class="logout-form">
-            <button type="submit">{{ strings["nav.logout"] }} ({{ user.display_name }})</button>
-        </form>
-    </nav>
+    <div class="nav-container">
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">☰ メニュー</button>
+        <nav id="nav-links" class="nav-links">
+            <a href="/">{{ strings["nav.dashboard"] }}</a>
+            <a href="/tasks">{{ strings["nav.tasks"] }}</a>
+            <a href="/templates/tasks">{{ strings["nav.templates"] }}</a>
+            <a href="/rewards">{{ strings["nav.rewards"] }}</a>
+            <a href="/points">{{ strings["nav.points"] }}</a>
+            <a href="/meal-plans">{{ strings["nav.mealPlans"] }}</a>
+            <a href="/menus">{{ strings["nav.menus"] }}</a>
+            <a href="/settings">{{ strings["nav.settings"] }}</a>
+            <form action="/logout" method="post" class="logout-form">
+                <button type="submit">{{ strings["nav.logout"] }} ({{ user.display_name }})</button>
+            </form>
+        </nav>
+    </div>
+    <script>
+    const navToggle = document.querySelector('.nav-toggle');
+    const navLinks = document.querySelector('#nav-links');
+    if (navToggle && navLinks) {
+        navToggle.addEventListener('click', () => {
+            const open = navLinks.classList.toggle('open');
+            navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+    }
+    </script>
     {% endif %}
 </header>
 <main>
