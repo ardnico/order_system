@@ -24,6 +24,7 @@
             <a href="/meal-plans">{{ strings["nav.mealPlans"] }}</a>
             <a href="/menus">{{ strings["nav.menus"] }}</a>
             <a href="/ingredients">{{ strings["nav.ingredients"] }}</a>
+            {% if user.is_admin %}<a href="/admin">{{ strings["nav.admin"] }}</a>{% endif %}
             <a href="/settings">{{ strings["nav.settings"] }}</a>
             <a href="/help">{{ strings["nav.help"] }}</a>
             <form action="/logout" method="post" class="logout-form">

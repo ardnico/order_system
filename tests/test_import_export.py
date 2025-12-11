@@ -40,6 +40,7 @@ def test_ingredient_add_and_protect_delete(client, session):
             "ingredient_quantities": ["2"],
             "ingredient_units": ["本"],
         },
+        files={},
         follow_redirects=False,
     )
     block_resp = client.post(f"/ingredients/{carrot_id}/delete", follow_redirects=False)
@@ -67,12 +68,13 @@ def test_export_and_import_round_trip(client, session):
         "/menus",
         data={
             "name": "アップルパイ",
-            "description": "甘い", 
+            "description": "甘い",
             "dish_type_id": "",
             "ingredient_names": ["りんご"],
             "ingredient_quantities": ["3"],
             "ingredient_units": ["個"],
         },
+        files={},
         follow_redirects=False,
     )
 

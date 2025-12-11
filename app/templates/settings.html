@@ -18,6 +18,10 @@
                 <p class="muted">{{ strings['settings.joinCode.description'] }}</p>
             </label>
             <label>
+                <span>{{ strings['settings.contributionRate'] }}</span>
+                <input type="number" min="1" name="contribution_rate" value="{{ household.contribution_rate if household else 10 }}">
+            </label>
+            <label>
                 <span>UI Language / 言語</span>
                 <select name="language">
                     <option value="en" {% if household and household.language=='en' %}selected{% endif %}>{{ strings['settings.language.en'] }}</option>

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ strings['admin.heading'] }}</h1>
+<div class="grid">
+    <div class="card">
+        <h2>{{ strings['admin.households'] }}</h2>
+        <form method="post" action="/admin/households" class="stack">
+            <label>{{ strings['settings.householdName'] }}
+                <input name="name" required>
+            </label>
+            <label>{{ strings['admin.joinCode'] }}
+                <input name="join_code" placeholder="auto">
+            </label>
+            <label>{{ strings['admin.language'] }}
+                <select name="language">
+                    {% for lang in ['ja','en'] %}
+                    <option value="{{ lang }}">{{ strings['settings.language.' ~ lang] }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>{{ strings['admin.theme'] }}
+                <select name="theme">
+                    {% for theme_key in theme_choices %}
+                    <option value="{{ theme_key }}">{{ strings['settings.theme.' ~ theme_key] }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>{{ strings['admin.font'] }}
+                <select name="font">
+                    {% for font_key in font_choices %}
+                    <option value="{{ font_key }}">{{ strings['settings.font.' ~ font_key] }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>{{ strings['admin.rate'] }}
+                <input type="number" name="contribution_rate" min="1" value="10">
+            </label>
+            <button type="submit">{{ strings['admin.createHousehold'] }}</button>
+        </form>
+        <div class="stack" style="margin-top:1rem;">
+            {% for h in households %}
+            <div class="card stack">
+                <strong>{{ h.name }} (#{{ h.id }})</strong>
+                <form method="post" action="/admin/households/{{ h.id }}/update" class="stack">
+                    <label>{{ strings['settings.householdName'] }}<input name="name" value="{{ h.name }}"></label>
+                    <label>{{ strings['admin.joinCode'] }}<input name="join_code" value="{{ h.join_code }}"></label>
+                    <label>{{ strings['admin.language'] }}
+                        <select name="language">
+                            {% for lang in ['ja','en'] %}
+                            <option value="{{ lang }}" {% if h.language==lang %}selected{% endif %}>{{ strings['settings.language.' ~ lang] }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>{{ strings['admin.theme'] }}
+                        <select name="theme">
+                            {% for theme_key in theme_choices %}
+                            <option value="{{ theme_key }}" {% if h.theme==theme_key %}selected{% endif %}>{{ strings['settings.theme.' ~ theme_key] }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>{{ strings['admin.font'] }}
+                        <select name="font">
+                            {% for font_key in font_choices %}
+                            <option value="{{ font_key }}" {% if h.font==font_key %}selected{% endif %}>{{ strings['settings.font.' ~ font_key] }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>{{ strings['admin.rate'] }}<input type="number" name="contribution_rate" min="1" value="{{ h.contribution_rate }}"></label>
+                    <div class="actions">
+                        <button type="submit">{{ strings['admin.update'] }}</button>
+                    </div>
+                </form>
+                        {% if h.name != root_household_name %}
+                        <form method="post" action="/admin/households/{{ h.id }}/delete">
+                            <button type="submit" class="ghost">{{ strings['admin.delete'] }}</button>
+                        </form>
+                        {% endif %}
+            </div>
+            {% else %}
+            <p class="muted">No households</p>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="card">
+        <h2>{{ strings['admin.users'] }}</h2>
+        <form method="post" action="/admin/users" class="stack">
+            <label>{{ strings['auth.register.displayName'] }}<input name="display_name" required></label>
+            <label>{{ strings['auth.register.email'] }}<input type="email" name="email" required></label>
+            <label>{{ strings['auth.register.password'] }}<input type="password" name="password" required></label>
+            <label>{{ strings['auth.login.household'] }}
+                <select name="household_id">
+                    {% for h in households %}
+                    <option value="{{ h.id }}">{{ h.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label><input type="checkbox" name="is_admin" value="1"> {{ strings['admin.adminFlag'] }}</label>
+            <button type="submit">{{ strings['admin.createUser'] }}</button>
+        </form>
+        <div class="stack" style="margin-top:1rem;">
+            {% for u in users %}
+            <div class="card stack">
+                <strong>{{ u.display_name }} ({{ u.email }})</strong>
+                <form method="post" action="/admin/users/{{ u.id }}/update" class="stack">
+                    <label>{{ strings['auth.register.displayName'] }}<input name="display_name" value="{{ u.display_name }}"></label>
+                    <label>{{ strings['auth.register.email'] }}<input type="email" name="email" value="{{ u.email }}"></label>
+                    <label>{{ strings['auth.login.household'] }}
+                        <select name="household_id">
+                            {% for h in households %}
+                            <option value="{{ h.id }}" {% if u.household_id==h.id %}selected{% endif %}>{{ h.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>{{ strings['admin.passwordOptional'] }}<input type="password" name="password"></label>
+                    <label><input type="checkbox" name="is_admin" value="1" {% if u.is_admin %}checked{% endif %}> {{ strings['admin.adminFlag'] }}</label>
+                    <div class="actions">
+                        <button type="submit">{{ strings['admin.update'] }}</button>
+                    </div>
+                </form>
+                        {% if u.email != root_email %}
+                        <form method="post" action="/admin/users/{{ u.id }}/delete">
+                            <button type="submit" class="ghost">{{ strings['admin.delete'] }}</button>
+                        </form>
+                        {% endif %}
+            </div>
+            {% else %}
+            <p class="muted">No users</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

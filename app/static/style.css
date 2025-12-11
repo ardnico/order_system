@@ -221,6 +221,8 @@ button:hover { opacity: 0.9; }
 .description, .instructions, .notes { margin-top: 12px; }
 .instruction-body ul { padding-left: 18px; }
 .instruction-image, .instruction-image-wrap img { max-width: 100%; border-radius: 12px; box-shadow: var(--shadow); }
+.menu-thumb { margin: 6px 0; }
+.menu-thumb img { max-width: 100%; border-radius: 12px; box-shadow: var(--shadow); }
 .order-link { margin-top: 8px; }
 
 .order-sheet { background: #fff; padding: 18px; border-radius: 20px; box-shadow: var(--shadow); border: 2px dashed var(--accent); }
