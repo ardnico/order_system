@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero soft-card">
+    <div>
+        <p class="eyebrow">{{ strings['help.ribbon.meals'] }}</p>
+        <h1>{{ strings['ingredients.heading'] }}</h1>
+        <p class="muted">{{ strings['ingredients.subhead'] }}</p>
+    </div>
+</section>
+<div class="grid">
+    <div class="card pop">
+        <h3>{{ strings['ingredients.create'] }}</h3>
+        <form method="post" action="/ingredients" class="stack">
+            <label>{{ strings['ingredients.name'] }}
+                <input name="name" required placeholder="にんじん / carrot">
+            </label>
+            <label>{{ strings['ingredients.unit'] }}
+                <select name="unit">
+                    <option value=""></option>
+                    {% for unit in unit_options %}
+                    <option value="{{ unit.name }}">{{ unit.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit">{{ strings['ingredients.create'] }}</button>
+        </form>
+    </div>
+    <div class="card">
+        <h3>{{ strings['ingredients.heading'] }}</h3>
+        <table class="simple">
+            <tr>
+                <th>{{ strings['ingredients.name'] }}</th>
+                <th>{{ strings['ingredients.unit'] }}</th>
+                <th></th>
+            </tr>
+            {% for ing in ingredients %}
+            <tr>
+                <td>{{ ing.name }}</td>
+                <td>{{ ing.unit or '-' }}</td>
+                <td class="actions">
+                    {% if usage.get(ing.id, 0) > 0 %}
+                    <span class="pill muted">{{ strings['ingredients.deleteBlocked'] }}</span>
+                    {% else %}
+                    <form method="post" action="/ingredients/{{ ing.id }}/delete">
+                        <button class="ghost" type="submit">{{ strings['ingredients.delete'] }}</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3" class="muted">{{ strings['ingredients.empty'] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+{% endblock %}
