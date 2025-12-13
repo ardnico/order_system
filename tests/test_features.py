@@ -3,8 +3,12 @@ from sqlmodel import select
 from app.models import (
     DishType,
     Household,
+    MealPlan,
+    MealPlanDay,
     MealSetRequirement,
     MealSetTemplate,
+    Menu,
+    MenuIngredient,
     Task,
     TaskTemplate,
     User,
@@ -136,3 +140,30 @@ def test_task_points_prefilled_on_actions(client, session):
     task = session.exec(select(Task).where(Task.title == "Test")).first()
     detail = client.get(f"/tasks/{task.id}")
     assert "value=\"5\"" in detail.text
+
+
+def test_bowl_and_noodle_types_and_samples(client, session):
+    register_default(client)
+    client.get("/menus")
+    user = session.exec(select(User).where(User.email == "user@example.com")).first()
+    household = session.get(Household, user.household_id)
+    types = {d.name for d in session.exec(select(DishType).where(DishType.household_id == household.id))}
+    assert "Bowl" in types
+    assert "Noodle" in types
+    oyakodon = session.exec(select(Menu).where(Menu.name == "親子丼")).first()
+    assert oyakodon is not None
+    links = session.exec(select(MenuIngredient).where(MenuIngredient.menu_id == oyakodon.id)).all()
+    assert links
+
+
+def test_sample_meal_plan_seeded(client, session):
+    register_default(client)
+    resp = client.get("/meal-plans")
+    assert resp.status_code == 200
+    user = session.exec(select(User).where(User.email == "user@example.com")).first()
+    household = session.get(Household, user.household_id)
+    plan = session.exec(select(MealPlan).where(MealPlan.household_id == household.id)).first()
+    assert plan is not None
+    days = session.exec(select(MealPlanDay).where(MealPlanDay.meal_plan_id == plan.id)).all()
+    assert days
+    assert any(d.dinner_menu_id for d in days)

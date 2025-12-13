@@ -856,6 +856,8 @@ def seed_household_dish_types(session: Session, household_id: int):
         {"name": "Soup", "description": "汁物"},
         {"name": "Side", "description": "副菜"},
         {"name": "Salad", "description": "サラダ"},
+        {"name": "Bowl", "description": "丼"},
+        {"name": "Noodle", "description": "麺"},
     ]
     for entry in defaults:
         if entry["name"] in existing:
@@ -866,7 +868,7 @@ def seed_household_dish_types(session: Session, household_id: int):
 
 def seed_household_unit_options(session: Session, household_id: int):
     existing = {u.name for u in get_unit_options(session, household_id)}
-    defaults = ["個", "杯", "本", "g", "kg", "ml", "L", "枚", "パック", "丁", "切れ", "玉", "片", "束"]
+    defaults = ["個", "杯", "本", "g", "kg", "ml", "L", "枚", "パック", "丁", "切れ", "玉", "片", "束", "株"]
     for name in defaults:
         if name in existing:
             continue
@@ -916,11 +918,8 @@ def seed_default_meal_sets(session: Session, household_id: int):
 
 def seed_default_menus(session: Session, household_id: int):
     seed_household_dish_types(session, household_id)
-    existing = session.exec(select(Menu).where(Menu.household_id == household_id)).first()
-    if existing:
-        return
     dish_types = {d.name: d for d in get_dish_types(session, household_id)}
-    unit_options = {u.name: u for u in get_unit_options(session, household_id)}
+    existing = {m.name: m for m in get_menus_for_household(session, household_id)}
     samples = [
         {
             "name": "味噌汁",
@@ -982,8 +981,56 @@ def seed_default_menus(session: Session, household_id: int):
             "dish_type": "Side",
             "ingredients": [("ほうれん草", 1, "束"), ("醤油", 10, "ml"), ("かつお節", 1, "パック")],
         },
+        {"name": "豚肉の生姜焼き", "dish_type": "Main", "ingredients": [("豚肉", 200, "g"), ("玉ねぎ", 1.0, "個")]},
+        {"name": "鶏もも肉の照り焼き", "dish_type": "Main", "ingredients": [("鶏もも肉", 2, "枚")]},
+        {"name": "鶏ささみのエビチリ風", "dish_type": "Main", "ingredients": [("鶏ささみ", 4, "本")]},
+        {"name": "鶏ささみの大葉チーズフライ", "dish_type": "Main", "ingredients": [("鶏ささみ", 8, "本"), ("大葉", 4, "枚"), ("スライスチーズ", 4, "枚")]},
+        {"name": "ハンバーグ", "dish_type": "Main", "ingredients": [("合いびき肉", 200, "g"), ("玉ねぎ", 1, "個")]},
+        {"name": "鯖の味噌煮", "dish_type": "Main", "ingredients": [("鯖", 2, "切れ")]},
+        {"name": "ぶりの照り焼き", "dish_type": "Main", "ingredients": [("ぶり", 2, "切れ")]},
+        {"name": "鮭のガーリックフライ", "dish_type": "Main", "ingredients": [("鮭", 280, "g")]},
+        {"name": "鮭のムニエル", "dish_type": "Main", "ingredients": [("鮭", 2, "切れ")]},
+        {"name": "たらの西京焼き", "dish_type": "Main", "ingredients": [("味付けたら", 2, "切れ")]},
+        {"name": "蒸し鶏のサラダ", "dish_type": "Salad", "ingredients": [("蒸し鶏", 100, "g"), ("きゅうり", 1, "本")]},
+        {"name": "豆腐とわかめのサラダ", "dish_type": "Salad", "ingredients": [("豆腐", 1, "丁"), ("わかめ（乾燥）", 5, "g"), ("水菜", 100, "g")],},
+        {"name": "大根とカニカマのサラダ", "dish_type": "Salad", "ingredients": [("大根", 200, "g"), ("カニカマ", 80, "g")]},
+        {"name": "海老とアボカドのサラダ", "dish_type": "Salad", "ingredients": [("むきえび", 200, "g"), ("アボカド", 1, "個")]},
+        {"name": "韓国風チョレギサラダ", "dish_type": "Salad", "ingredients": [("サニーレタス", 0.5, "玉"), ("にんじん", 50, "g"), ("長ねぎ", 5, "g")]},
+        {"name": "ツナコーンのサラダ", "dish_type": "Salad", "ingredients": [("ツナ缶", 70, "g"), ("コーン缶", 60, "g")]},
+        {"name": "ごぼうサラダ", "dish_type": "Salad", "ingredients": [("ごぼう", 1, "本"), ("にんじん", 50, "g")]},
+        {"name": "春雨サラダ", "dish_type": "Salad", "ingredients": [("春雨", 30, "g"), ("きゅうり", 1, "本"), ("ハム", 2, "枚")]},
+        {"name": "水菜と大根のサラダ", "dish_type": "Salad", "ingredients": [("水菜", 100, "g"), ("大根", 180, "g"), ("ツナ缶（オイル漬け）", 70, "g")],},
+        {"name": "トマトと玉ねぎのサラダ", "dish_type": "Salad", "ingredients": [("トマト", 200, "g"), ("新玉ねぎ", 100, "g")]},
+        {"name": "中華クラゲのサラダ", "dish_type": "Salad", "ingredients": [("味付け中華クラゲ", 100, "g"), ("きゅうり", 1, "本"), ("春雨", 20, "g"), ("卵", 1, "個")]},
+        {"name": "グリーンサラダ", "dish_type": "Salad", "ingredients": [("レタス", 100, "g")]},
+        {"name": "ブロッコリーのごまマヨサラダ", "dish_type": "Salad", "ingredients": [("ブロッコリー", 150, "g"), ("にんじん", 60, "g")]},
+        {"name": "コールスローサラダ", "dish_type": "Salad", "ingredients": [("キャベツ", 200, "g"), ("ハム", 2, "枚"), ("コーン", 40, "g")]},
+        {"name": "鶏肉とキャベツのスープ用具材", "dish_type": "Side", "ingredients": [("鶏もも肉", 150, "g"), ("キャベツ", 100, "g")]},
+        {
+            "name": "味噌汁（共通具材）",
+            "dish_type": "Soup",
+            "ingredients": [("豆腐", 1, "丁"), ("揚げなす", 1, "本"), ("玉ねぎ", 1, "個"), ("油揚げ", 1, "枚"), ("わかめ（乾燥）", 1, "g"), ("長ねぎ", 1, "本"), ("大根", 0.5, "本"), ("きのこ類", 1, "パック")],
+        },
+        {"name": "わかめスープ", "dish_type": "Soup", "ingredients": [("わかめ（乾燥）", 2, "g"), ("長ねぎ", 40, "g")]},
+        {"name": "卵スープ", "dish_type": "Soup", "ingredients": [("卵", 2, "個")]},
+        {"name": "玉ねぎのコンソメスープ", "dish_type": "Soup", "ingredients": [("玉ねぎ", 0.5, "個")]},
+        {"name": "ミネストローネ", "dish_type": "Soup", "ingredients": [("玉ねぎ", 0.5, "個"), ("じゃがいも", 0.5, "個"), ("にんじん", 0.33, "本"), ("にんにく", 0.5, "片"), ("カットトマト缶", 150, "g")]},
+        {"name": "ポークビーンズ", "dish_type": "Soup", "ingredients": [("豚こま肉", 100, "g"), ("ベーコン", 2, "枚"), ("大豆（水煮）", 50, "g"), ("玉ねぎ", 0.5, "個"), ("にんじん", 0.33, "本"), ("じゃがいも", 150, "g"), ("カットトマト缶", 200, "g")]},
+        {"name": "ワンタンスープ", "dish_type": "Soup", "ingredients": [("ワンタン皮", 8, "枚"), ("挽き肉", 100, "g"), ("長ねぎ", 0.33, "本")]},
+        {"name": "春雨スープ", "dish_type": "Soup", "ingredients": [("春雨", 15, "g"), ("卵", 1, "個"), ("わかめ（乾燥）", 2, "g")]},
+        {"name": "親子丼", "dish_type": "Bowl", "ingredients": [("鶏もも肉", 1, "枚"), ("卵", 3, "個"), ("玉ねぎ", 0.5, "個")]},
+        {"name": "そぼろ丼", "dish_type": "Bowl", "ingredients": [("鶏ひき肉", 150, "g"), ("ほうれん草", 100, "g"), ("卵", 2, "個")]},
+        {"name": "オムライス", "dish_type": "Bowl", "ingredients": [("鶏もも肉", 0.25, "枚"), ("玉ねぎ", 0.25, "個"), ("卵", 4, "個")]},
+        {"name": "ナポリタン", "dish_type": "Noodle", "ingredients": [("玉ねぎ", 0.5, "個"), ("ピーマン", 2, "個"), ("ウインナー", 4, "本")]},
+        {"name": "焼きそば", "dish_type": "Noodle", "ingredients": [("豚バラ肉", 100, "g"), ("玉ねぎ", 90, "g"), ("キャベツ", 180, "g"), ("ピーマン", 40, "g"), ("焼きそば麺", 2, "玉")]},
+        {"name": "卵チャーハン", "dish_type": "Bowl", "ingredients": [("卵", 2, "個")]},
+        {"name": "うどん", "dish_type": "Noodle", "ingredients": [("うどん", 2, "玉")]},
+        {"name": "シチュー", "dish_type": "Bowl", "ingredients": [("鶏もも肉", 0.5, "枚"), ("玉ねぎ", 0.5, "個"), ("にんじん", 0.5, "本"), ("じゃがいも", 2, "個"), ("ブロッコリー", 0.25, "株")],},
+        {"name": "カレー", "dish_type": "Bowl", "ingredients": [("鶏もも肉", 0.5, "枚"), ("玉ねぎ", 0.5, "個"), ("にんじん", 0.5, "本"), ("じゃがいも", 2, "個"), ("ブロッコリー", 0.25, "株")],},
     ]
     for sample in samples:
+        if sample["name"] in existing:
+            continue
         dish_type = dish_types.get(sample["dish_type"])
         menu = Menu(
             household_id=household_id,
@@ -994,18 +1041,61 @@ def seed_default_menus(session: Session, household_id: int):
         session.add(menu)
         session.commit()
         session.refresh(menu)
-        for ing_name, qty, unit in sample["ingredients"]:
-            unit_option = unit_options.get(unit)
-            ingredient = get_or_create_ingredient(session, household_id, ing_name, unit)
-            session.add(
-                MenuIngredient(
-                    menu_id=menu.id,
-                    ingredient_id=ingredient.id,
-                    quantity=float(qty),
-                    unit_option_id=unit_option.id if unit_option else None,
-                )
-            )
-        session.commit()
+        ing_names = [ing[0] for ing in sample.get("ingredients", [])]
+        ing_qty = [float(ing[1]) if ing[1] is not None else 0 for ing in sample.get("ingredients", [])]
+        ing_units = [ing[2] if len(ing) > 2 else "" for ing in sample.get("ingredients", [])]
+        save_menu_ingredients(session, menu, ing_names, ing_qty, ing_units, household_id)
+        existing[menu.name] = menu
+
+
+def seed_default_meal_plan(session: Session, household_id: int):
+    existing_plan = session.exec(
+        select(MealPlan).where(MealPlan.household_id == household_id)
+    ).first()
+    if existing_plan:
+        return
+    creator = session.exec(
+        select(User).where(User.household_id == household_id).order_by(User.id)
+    ).first()
+    if not creator:
+        return
+    start = date.today()
+    end = start + timedelta(days=6)
+    plan = MealPlan(
+        household_id=household_id,
+        name="サンプル献立",
+        start_date=start,
+        end_date=end,
+        created_by_user_id=creator.id,
+    )
+    session.add(plan)
+    session.commit()
+    session.refresh(plan)
+    ensure_meal_plan_days(session, plan)
+    menus = {m.name: m for m in get_menus_for_household(session, household_id)}
+    day_pairs = [
+        ("豚肉の生姜焼き", "わかめスープ"),
+        ("鶏もも肉の照り焼き", "卵スープ"),
+        ("鶏ささみのエビチリ風", "ミネストローネ"),
+        ("ハンバーグ", "春雨スープ"),
+        ("鯖の味噌煮", "玉ねぎのコンソメスープ"),
+        ("ぶりの照り焼き", "ポークビーンズ"),
+        ("鮭のムニエル", "ワンタンスープ"),
+    ]
+    days = session.exec(
+        select(MealPlanDay)
+        .where(MealPlanDay.meal_plan_id == plan.id)
+        .order_by(MealPlanDay.day_date)
+    ).all()
+    for day, (dinner_name, soup_name) in zip(days, day_pairs):
+        dinner = menus.get(dinner_name)
+        soup = menus.get(soup_name)
+        if soup:
+            day.lunch_menu_id = soup.id
+        if dinner:
+            day.dinner_menu_id = dinner.id
+        session.add(day)
+    session.commit()
 
 
 def ensure_meal_seed_data(session: Session, household_id: int):
@@ -1013,6 +1103,7 @@ def ensure_meal_seed_data(session: Session, household_id: int):
     seed_household_unit_options(session, household_id)
     seed_default_meal_sets(session, household_id)
     seed_default_menus(session, household_id)
+    seed_default_meal_plan(session, household_id)
 
 
 def ensure_household_defaults(session: Session, household_id: int):
