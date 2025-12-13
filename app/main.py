@@ -3,7 +3,7 @@ import json
 import os
 import secrets
 from datetime import date, datetime, time, timedelta
-from typing import Optional
+from typing import List, Optional, Union
 
 from contextlib import asynccontextmanager
 
@@ -1543,7 +1543,7 @@ def save_menu_ingredients(
     session.commit()
 
 
-def normalize_list_field(value: list[str] | str | None) -> list[str]:
+def normalize_list_field(value: Union[List[str], str, None]) -> List[str]:
     if isinstance(value, list):
         flattened: list[str] = []
         for entry in value:
