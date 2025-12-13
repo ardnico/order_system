@@ -35,21 +35,23 @@ def register_default(client):
 
 def test_menu_creation_persists_ingredients(client, session):
     register_default(client)
+    user = session.exec(select(User).where(User.email == "cook@example.com")).first()
     soup_type = session.exec(select(DishType).where(DishType.name == "Soup")).first()
     resp = client.post(
         "/menus",
-        data=[
-            ("name", "Curry"),
-            ("dish_type_id", soup_type.id if soup_type else ""),
-            ("ingredient_names", "Onion"),
-            ("ingredient_quantities", "1.5"),
-            ("ingredient_units", "個"),
-        ],
+        data={
+            "name": "Curry",
+            "dish_type_id": soup_type.id if soup_type else "",
+            "ingredient_names": ["Onion"],
+            "ingredient_quantities": ["1.5"],
+            "ingredient_units": ["個"],
+        },
+        files={},
     )
     assert resp.status_code in (200, 303)
 
     session.expire_all()
-    menu = session.exec(select(Menu).where(Menu.name == "Curry")).first()
+    menu = session.exec(select(Menu).where(Menu.name == "Curry", Menu.household_id == user.household_id)).first()
     assert menu is not None
     links = session.exec(select(MenuIngredient).where(MenuIngredient.menu_id == menu.id)).all()
     assert len(links) == 1
@@ -58,28 +60,31 @@ def test_menu_creation_persists_ingredients(client, session):
 
 def test_meal_plan_aggregation(client, session):
     register_default(client)
+    user = session.exec(select(User).where(User.email == "cook@example.com")).first()
     # Create two menus with overlapping ingredient names/units
     soup_type = session.exec(select(DishType).where(DishType.name == "Soup")).first()
     main_type = session.exec(select(DishType).where(DishType.name == "Main")).first()
     client.post(
         "/menus",
-        data=[
-            ("name", "Soup"),
-            ("dish_type_id", soup_type.id if soup_type else ""),
-            ("ingredient_names", "Onion"),
-            ("ingredient_quantities", "1"),
-            ("ingredient_units", "個"),
-        ],
+        data={
+            "name": "Soup",
+            "dish_type_id": soup_type.id if soup_type else "",
+            "ingredient_names": ["Onion"],
+            "ingredient_quantities": ["1"],
+            "ingredient_units": ["個"],
+        },
+        files={},
     )
     client.post(
         "/menus",
-        data=[
-            ("name", "Stew"),
-            ("dish_type_id", main_type.id if main_type else ""),
-            ("ingredient_names", "Onion"),
-            ("ingredient_quantities", "2"),
-            ("ingredient_units", "個"),
-        ],
+        data={
+            "name": "Stew",
+            "dish_type_id": main_type.id if main_type else "",
+            "ingredient_names": ["Onion"],
+            "ingredient_quantities": ["2"],
+            "ingredient_units": ["個"],
+        },
+        files={},
     )
     plan_resp = client.post(
         "/meal-plans",
@@ -89,9 +94,10 @@ def test_meal_plan_aggregation(client, session):
     assert plan_resp.status_code in (200, 303)
 
     session.expire_all()
-    plan = session.exec(select(MealPlan)).first()
-    menus = session.exec(select(Menu).order_by(Menu.name)).all()
-    set_template = session.exec(select(MealSetTemplate)).first()
+    plan = session.exec(select(MealPlan).where(MealPlan.household_id == user.household_id)).first()
+    soup_menu = session.exec(select(Menu).where(Menu.name == "Soup", Menu.household_id == user.household_id)).first()
+    stew_menu = session.exec(select(Menu).where(Menu.name == "Stew", Menu.household_id == user.household_id)).first()
+    set_template = session.exec(select(MealSetTemplate).where(MealSetTemplate.household_id == user.household_id)).first()
     days = session.exec(select(MealPlanDay).where(MealPlanDay.meal_plan_id == plan.id).order_by(MealPlanDay.day_date)).all()
 
     data = []
@@ -102,8 +108,8 @@ def test_meal_plan_aggregation(client, session):
         data.append(("lunch_set_ids", set_template.id if set_template else ""))
         data.append(("dinner_set_ids", ""))
         # lunch selections align with default Aセット requirements (Soup/Main/Side)
-        data.append((f"lunch_selection-{idx}-{soup_type.id}", menus[0].id))
-        data.append((f"lunch_selection-{idx}-{main_type.id}", menus[1].id))
+        data.append((f"lunch_selection-{idx}-{soup_type.id}", soup_menu.id))
+        data.append((f"lunch_selection-{idx}-{main_type.id}", stew_menu.id))
     update_resp = client.post(f"/meal-plans/{plan.id}", data=data)
     assert update_resp.status_code in (200, 303)
 
@@ -121,19 +127,21 @@ def test_meal_plan_aggregation(client, session):
 
 def test_meal_plan_tasks_create_on_day(client, session):
     register_default(client)
+    user = session.exec(select(User).where(User.email == "cook@example.com")).first()
     soup_type = session.exec(select(DishType).where(DishType.name == "Soup")).first()
-    set_template = session.exec(select(MealSetTemplate)).first()
+    set_template = session.exec(select(MealSetTemplate).where(MealSetTemplate.household_id == user.household_id)).first()
     client.post(
         "/menus",
-        data=[
-            ("name", "Day Soup"),
-            ("dish_type_id", soup_type.id if soup_type else ""),
-            ("ingredient_names", "Onion"),
-            ("ingredient_quantities", "1"),
-            ("ingredient_units", "個"),
-        ],
+        data={
+            "name": "Day Soup",
+            "dish_type_id": soup_type.id if soup_type else "",
+            "ingredient_names": ["Onion"],
+            "ingredient_quantities": ["1"],
+            "ingredient_units": ["個"],
+        },
+        files={},
     )
-    menu = session.exec(select(Menu).where(Menu.name == "Day Soup")).first()
+    menu = session.exec(select(Menu).where(Menu.name == "Day Soup", Menu.household_id == user.household_id)).first()
     plan_resp = client.post(
         "/meal-plans",
         data={"name": "Today", "start_date": date.today(), "end_date": date.today()},
@@ -141,7 +149,9 @@ def test_meal_plan_tasks_create_on_day(client, session):
     )
     assert plan_resp.status_code in (200, 303)
 
-    day = session.exec(select(MealPlanDay)).first()
+    session.expire_all()
+    plan = session.exec(select(MealPlan).where(MealPlan.household_id == user.household_id)).first()
+    day = session.exec(select(MealPlanDay).where(MealPlanDay.meal_plan_id == plan.id)).first()
     data = [
         ("day_dates", str(day.day_date)),
         ("lunch_menu_ids", ""),
@@ -153,7 +163,7 @@ def test_meal_plan_tasks_create_on_day(client, session):
     client.post(f"/meal-plans/{day.meal_plan_id}", data=data)
 
     session.expire_all()
-    user = session.exec(select(User)).first()
+    user = session.exec(select(User).where(User.email == "cook@example.com")).first()
     run_meal_plan_tasks(session, user.household_id, user.id)
     tasks = session.exec(select(Task).where(Task.meal_plan_day_id == day.id)).all()
     assert tasks

@@ -12,7 +12,7 @@ from sqlmodel import SQLModel, Session, create_engine
 
 from app import db
 from app import models  # ensure models are registered with metadata
-from app.main import app
+from app.main import app, ensure_root_admin
 
 
 test_engine = create_engine(
@@ -29,9 +29,12 @@ def override_get_session():
 def reset_database():
     SQLModel.metadata.drop_all(test_engine)
     SQLModel.metadata.create_all(test_engine)
+    ensure_root_admin()
 
 
 db.engine = test_engine
+import app.main as main
+main.engine = test_engine
 app.dependency_overrides[db.get_session] = override_get_session
 
 

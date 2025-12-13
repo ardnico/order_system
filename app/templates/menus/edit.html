@@ -1,8 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
+<datalist id="ingredient-options">
+    {% for ing in ingredient_options %}
+    <option value="{{ ing.name }}"></option>
+    {% endfor %}
+</datalist>
 <h1>{{ strings["menus.edit"] }}</h1>
 <div class="card">
-    <form method="post" action="/menus/{{ menu.id }}/edit">
+    <form method="post" action="/menus/{{ menu.id }}/edit" enctype="multipart/form-data">
         <label>{{ strings["menus.name"] }}
             <input name="name" value="{{ menu.name }}" required>
         </label>
@@ -17,6 +22,12 @@
                 {% endfor %}
             </select>
         </label>
+        <label>{{ strings["menus.image"] }}
+            <input type="file" name="image_file" accept="image/*">
+        </label>
+        {% if menu.image_url %}
+        <div class="menu-thumb"><img src="{{ menu.image_url }}" alt="{{ menu.name }}" loading="lazy"></div>
+        {% endif %}
         <h3>{{ strings["menus.ingredients"] }}</h3>
         <table>
             <tr>
@@ -24,39 +35,81 @@
                 <th>{{ strings["menus.quantity"] }}</th>
                 <th>{{ strings["menus.unit"] }}</th>
             </tr>
-            {% for ing in ingredients %}
-            <tr>
-                <td><input name="ingredient_names" value="{{ ing.name }}"></td>
-                <td><input name="ingredient_quantities" type="number" step="0.1" value="{{ ing.quantity }}"></td>
-                <td>
-                    <select name="ingredient_units">
-                        <option value=""></option>
-                        {% for unit in unit_options %}
-                        <option value="{{ unit.name }}" {% if ing.unit == unit.name %}selected{% endif %}>{{ unit.name }}</option>
-                        {% endfor %}
-                    </select>
-                </td>
-            </tr>
-            {% endfor %}
-            {% for i in range(5 - ingredients|length) %}
-            <tr>
-                <td><input name="ingredient_names"></td>
-                <td><input name="ingredient_quantities" type="number" step="0.1"></td>
-                <td>
-                    <select name="ingredient_units">
-                        <option value=""></option>
-                        {% for unit in unit_options %}
-                        <option value="{{ unit.name }}">{{ unit.name }}</option>
-                        {% endfor %}
-                    </select>
-                </td>
-            </tr>
-            {% endfor %}
+            <tbody id="ingredient-rows">
+                {% for ing in ingredients %}
+                <tr>
+                    <td><input name="ingredient_names" value="{{ ing.name }}" list="ingredient-options" autocomplete="off" class="ing-name"></td>
+                    <td><input name="ingredient_quantities" type="number" step="0.1" value="{{ ing.quantity }}"></td>
+                    <td>
+                        <select name="ingredient_units">
+                            <option value=""></option>
+                            {% for unit in unit_options %}
+                            <option value="{{ unit.name }}" {% if ing.unit == unit.name %}selected{% endif %}>{{ unit.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% for i in range(5 - ingredients|length) %}
+                <tr>
+                    <td><input name="ingredient_names" list="ingredient-options" autocomplete="off" class="ing-name"></td>
+                    <td><input name="ingredient_quantities" type="number" step="0.1"></td>
+                    <td>
+                        <select name="ingredient_units">
+                            <option value=""></option>
+                            {% for unit in unit_options %}
+                            <option value="{{ unit.name }}">{{ unit.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
+        <button type="button" class="ghost" id="add-row">{{ strings["menus.addRow"] }}</button>
         <div class="actions">
             <button type="submit">{{ strings["menus.save"] }}</button>
             <a class="ghost" href="/menus">{{ strings["nav.menus"] }}</a>
         </div>
     </form>
 </div>
+<script type="application/json" id="ingredient-data">{{ ingredient_data|tojson }}</script>
+<script>
+    const ingredientData = JSON.parse(document.getElementById('ingredient-data').textContent);
+    const unitLookup = {};
+    ingredientData.forEach((ing) => {
+        if (ing.unit) {
+            unitLookup[ing.name.toLowerCase()] = ing.unit;
+        }
+    });
+    const tbody = document.getElementById('ingredient-rows');
+    const addRowBtn = document.getElementById('add-row');
+    function attachUnitBehavior(row) {
+        const nameInput = row.querySelector('.ing-name');
+        const unitSelect = row.querySelector('select[name="ingredient_units"]');
+        nameInput?.addEventListener('change', () => {
+            const unit = unitLookup[nameInput.value.toLowerCase()];
+            if (unit && !unitSelect.value) {
+                unitSelect.value = unit;
+            }
+        });
+    }
+    Array.from(tbody.querySelectorAll('tr')).forEach(attachUnitBehavior);
+    addRowBtn.addEventListener('click', () => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><input name="ingredient_names" list="ingredient-options" autocomplete="off" class="ing-name"></td>
+            <td><input name="ingredient_quantities" type="number" step="0.1"></td>
+            <td>
+                <select name="ingredient_units">
+                    <option value=""></option>
+                    {% for unit in unit_options %}
+                    <option value="{{ unit.name }}">{{ unit.name }}</option>
+                    {% endfor %}
+                </select>
+            </td>`;
+        tbody.appendChild(row);
+        attachUnitBehavior(row);
+    });
+</script>
 {% endblock %}

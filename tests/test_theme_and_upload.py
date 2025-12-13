@@ -1,17 +1,27 @@
 from sqlmodel import select
 
-from app.models import Household, TaskTemplate
+from app.models import Household, TaskTemplate, User
 from tests.test_filters_and_recurring import register_user
 
 
 def test_theme_preference_applies_to_pages(client, session):
     register_user(client)
+    user = session.exec(select(User).where(User.email == "alice@example.com")).first()
+    household = session.get(Household, user.household_id)
     client.post(
         "/settings/language",
-        data={"language": "ja", "theme": "mint"},
+        data={
+            "language": "ja",
+            "theme": "mint",
+            "font": household.font,
+            "household_name": household.name,
+            "join_code": household.join_code,
+            "contribution_rate": household.contribution_rate,
+        },
     )
 
-    household = session.exec(select(Household)).first()
+    session.expire_all()
+    household = session.get(Household, user.household_id)
     assert household.theme == "mint"
 
     resp = client.get("/tasks")
