@@ -7,6 +7,7 @@ from app.models import (
     MealSetTemplate,
     Task,
     TaskTemplate,
+    User,
 )
 
 
@@ -84,13 +85,23 @@ def test_meal_set_editing_updates_requirements(client, session):
 
 def test_font_and_localized_rewards(client, session):
     register_default(client)
+    user = session.exec(select(User).where(User.email == "user@example.com")).first()
+    household = session.get(Household, user.household_id)
     settings_resp = client.post(
         "/settings/language",
-        data={"language": "ja", "theme": "sakura", "font": "serif"},
+        data={
+            "language": "ja",
+            "theme": "sakura",
+            "font": "serif",
+            "household_name": household.name,
+            "join_code": household.join_code,
+            "contribution_rate": household.contribution_rate,
+        },
         follow_redirects=False,
     )
     assert settings_resp.status_code in (200, 303)
-    household = session.exec(select(Household)).first()
+    session.expire_all()
+    household = session.get(Household, user.household_id)
     assert household.font == "serif"
     assert household.language == "ja"
     rewards_page = client.get("/rewards")

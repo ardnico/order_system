@@ -38,6 +38,7 @@ class Household(SQLModel, table=True):
     language: str = Field(default="ja")
     theme: str = Field(default="sakura")
     font: str = Field(default="modern")
+    contribution_rate: int = Field(default=10)
 
     users: list["User"] = Relationship(back_populates="household")
 
@@ -49,6 +50,7 @@ class User(SQLModel, table=True):
     display_name: str
     hashed_password: str
     is_admin: bool = False
+    contribution_credit: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     household: Household = Relationship(back_populates="users")
@@ -179,6 +181,7 @@ class Menu(SQLModel, table=True):
     name: str
     description: Optional[str] = None
     dish_type_id: Optional[int] = Field(default=None, foreign_key="dishtype.id")
+    image_url: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     ingredients: list["MenuIngredient"] = Relationship(back_populates="menu")
